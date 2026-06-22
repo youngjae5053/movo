@@ -6,13 +6,36 @@ import {
   mapTrainerRow,
   mapWorkoutRow,
 } from "@/lib/mappers";
-import type { Member, Reservation } from "@/lib/types";
+import {
+  buildWorkoutMediaPath,
+  getMediaTypeFromFile,
+  WORKOUT_MEDIA_BUCKET,
+} from "@/lib/storage";
+import type { Member, Reservation, WorkoutRecord } from "@/lib/types";
+import type { MoodValue } from "@/lib/workout";
 import {
   addDaysToDateString,
   formatReservationChatMessage,
   getTodayDateString,
   groupReservationsByDate,
 } from "@/lib/utils";
+
+export type CreateWorkoutRecordInput = {
+  content?: string;
+  title?: string;
+  duration?: number;
+  bodyParts?: string[];
+  mood?: MoodValue;
+  files?: File[];
+};
+
+export type UpdateWorkoutRecordInput = {
+  content?: string;
+  title?: string;
+  duration?: number;
+  bodyParts?: string[];
+  mood?: MoodValue;
+};
 
 export async function ensureTrainerProfile(supabase: SupabaseBrowserClient) {
   const {
@@ -149,7 +172,7 @@ export async function fetchWorkoutRecords(
 ) {
   const { data, error } = await supabase
     .from("workout_records")
-    .select("*")
+    .select("*, workout_record_media(*)")
     .eq("member_id", memberId)
     .order("record_date", { ascending: false })
     .order("created_at", { ascending: false });
@@ -158,16 +181,99 @@ export async function fetchWorkoutRecords(
     throw error;
   }
 
-  return (data ?? []).map(mapWorkoutRow);
+  return (data ?? []).map((row) => mapWorkoutRow(row, supabase));
+}
+
+async function uploadWorkoutMediaFiles(
+  supabase: SupabaseBrowserClient,
+  trainerId: string,
+  memberId: string,
+  recordId: string,
+  files: File[],
+) {
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files[index];
+    const storagePath = buildWorkoutMediaPath(
+      trainerId,
+      memberId,
+      recordId,
+      file.name,
+    );
+
+    const { error: uploadError } = await supabase.storage
+      .from(WORKOUT_MEDIA_BUCKET)
+      .upload(storagePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type || undefined,
+      });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { error: insertError } = await supabase
+      .from("workout_record_media")
+      .insert({
+        workout_record_id: recordId,
+        trainer_id: trainerId,
+        storage_path: storagePath,
+        media_type: getMediaTypeFromFile(file),
+        file_name: file.name,
+        mime_type: file.type || null,
+        file_size: file.size,
+        sort_order: index,
+      });
+
+    if (insertError) {
+      throw insertError;
+    }
+  }
+}
+
+async function fetchWorkoutRecordById(
+  supabase: SupabaseBrowserClient,
+  recordId: string,
+) {
+  const { data, error } = await supabase
+    .from("workout_records")
+    .select("*, workout_record_media(*)")
+    .eq("id", recordId)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapWorkoutRow(data, supabase);
+}
+
+function buildMoodNote(mood?: MoodValue) {
+  if (!mood) return undefined;
+
+  const labels: Record<MoodValue, string> = {
+    great: "컨디션 최고",
+    good: "컨디션 좋음",
+    normal: "컨디션 보통",
+    tired: "피곤함",
+  };
+
+  return labels[mood];
 }
 
 export async function createWorkoutRecord(
   supabase: SupabaseBrowserClient,
   memberId: string,
   trainerId: string,
-  content: string,
-) {
+  input: CreateWorkoutRecordInput,
+): Promise<WorkoutRecord> {
   const today = getTodayDateString();
+  const trimmedContent = input.content?.trim();
+  const hasFiles = Boolean(input.files && input.files.length > 0);
+
+  if (!trimmedContent && !hasFiles) {
+    throw new Error("내용 또는 사진/영상을 추가해 주세요.");
+  }
 
   const { data, error } = await supabase
     .from("workout_records")
@@ -175,13 +281,32 @@ export async function createWorkoutRecord(
       member_id: memberId,
       trainer_id: trainerId,
       record_date: today,
-      content,
+      content: trimmedContent || (hasFiles ? "(사진/영상 첨부)" : null),
+      title: input.title?.trim() || null,
+      duration: input.duration ?? null,
+      exercises: input.bodyParts?.length ? input.bodyParts : null,
+      note: buildMoodNote(input.mood) ?? null,
     })
     .select("*")
     .single();
 
   if (error) {
     throw error;
+  }
+
+  try {
+    if (input.files?.length) {
+      await uploadWorkoutMediaFiles(
+        supabase,
+        trainerId,
+        memberId,
+        data.id,
+        input.files,
+      );
+    }
+  } catch (uploadError) {
+    await supabase.from("workout_records").delete().eq("id", data.id);
+    throw uploadError;
   }
 
   await supabase
@@ -189,38 +314,57 @@ export async function createWorkoutRecord(
     .update({ last_workout_at: today })
     .eq("id", memberId);
 
-  return mapWorkoutRow(data);
+  return fetchWorkoutRecordById(supabase, data.id);
 }
 
 export async function updateWorkoutRecord(
   supabase: SupabaseBrowserClient,
   recordId: string,
-  content: string,
+  input: UpdateWorkoutRecordInput,
 ) {
-  const { data, error } = await supabase
+  const trimmedContent = input.content?.trim();
+
+  const { error } = await supabase
     .from("workout_records")
     .update({
-      content,
-      title: null,
-      duration: null,
-      exercises: null,
-      note: null,
+      content: trimmedContent || null,
+      title: input.title?.trim() || null,
+      duration: input.duration ?? null,
+      exercises: input.bodyParts?.length ? input.bodyParts : null,
+      note: buildMoodNote(input.mood) ?? null,
     })
-    .eq("id", recordId)
-    .select("*")
-    .single();
+    .eq("id", recordId);
 
   if (error) {
     throw error;
   }
 
-  return mapWorkoutRow(data);
+  return fetchWorkoutRecordById(supabase, recordId);
 }
 
 export async function deleteWorkoutRecord(
   supabase: SupabaseBrowserClient,
   recordId: string,
 ) {
+  const { data: media, error: mediaError } = await supabase
+    .from("workout_record_media")
+    .select("storage_path")
+    .eq("workout_record_id", recordId);
+
+  if (mediaError) {
+    throw mediaError;
+  }
+
+  if (media?.length) {
+    const { error: storageError } = await supabase.storage
+      .from(WORKOUT_MEDIA_BUCKET)
+      .remove(media.map((item) => item.storage_path));
+
+    if (storageError) {
+      throw storageError;
+    }
+  }
+
   const { error } = await supabase
     .from("workout_records")
     .delete()

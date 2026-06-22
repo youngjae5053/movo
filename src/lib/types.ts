@@ -1,13 +1,25 @@
 export type MemberStatus = "active" | "inactive" | "paused";
 
+export type WorkoutMediaType = "image" | "video";
+
+export type WorkoutMedia = {
+  id: string;
+  url: string;
+  storagePath: string;
+  type: WorkoutMediaType;
+  fileName?: string;
+};
+
 export type WorkoutRecord = {
   id: string;
   date: string;
+  createdAt?: string;
   content?: string;
   title?: string;
   duration?: number;
   exercises?: string[];
   note?: string;
+  media?: WorkoutMedia[];
 };
 
 export type Member = {

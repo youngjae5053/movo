@@ -146,6 +146,60 @@ export type Database = {
           },
         ];
       };
+      workout_record_media: {
+        Row: {
+          id: string;
+          workout_record_id: string;
+          trainer_id: string;
+          storage_path: string;
+          media_type: "image" | "video";
+          file_name: string | null;
+          mime_type: string | null;
+          file_size: number | null;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          workout_record_id: string;
+          trainer_id: string;
+          storage_path: string;
+          media_type: "image" | "video";
+          file_name?: string | null;
+          mime_type?: string | null;
+          file_size?: number | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          workout_record_id?: string;
+          trainer_id?: string;
+          storage_path?: string;
+          media_type?: "image" | "video";
+          file_name?: string | null;
+          mime_type?: string | null;
+          file_size?: number | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "workout_record_media_workout_record_id_fkey";
+            columns: ["workout_record_id"];
+            isOneToOne: false;
+            referencedRelation: "workout_records";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "workout_record_media_trainer_id_fkey";
+            columns: ["trainer_id"];
+            isOneToOne: false;
+            referencedRelation: "trainers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       messages: {
         Row: {
           id: string;
