@@ -6,21 +6,35 @@ import type { Member } from "@/lib/types";
 type AddMemberModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (member: Omit<Member, "id" | "email" | "status" | "joinedAt" | "lastWorkoutAt" | "workoutRecords">) => void;
+  onAdd: (
+    member: Omit<
+      Member,
+      "id" | "status" | "joinedAt" | "lastWorkoutAt" | "workoutRecords"
+    > & {
+      privacyConsent: boolean;
+      termsConsent: boolean;
+    },
+  ) => void;
 };
 
 type FormState = {
   name: string;
+  email: string;
   age: string;
   phone: string;
   goal: string;
+  privacyConsent: boolean;
+  termsConsent: boolean;
 };
 
 const initialFormState: FormState = {
   name: "",
+  email: "",
   age: "",
   phone: "",
   goal: "",
+  privacyConsent: false,
+  termsConsent: false,
 };
 
 export function AddMemberModal({ isOpen, onClose, onAdd }: AddMemberModalProps) {
@@ -40,15 +54,25 @@ export function AddMemberModal({ isOpen, onClose, onAdd }: AddMemberModalProps) 
     event.preventDefault();
 
     const age = Number(form.age);
-    if (!form.name.trim() || !form.phone.trim() || !form.goal.trim() || !age) {
+    if (
+      !form.name.trim() ||
+      !form.phone.trim() ||
+      !form.goal.trim() ||
+      !age ||
+      !form.privacyConsent ||
+      !form.termsConsent
+    ) {
       return;
     }
 
     onAdd({
       name: form.name.trim(),
+      email: form.email.trim() || "",
       age,
       phone: form.phone.trim(),
       goal: form.goal.trim(),
+      privacyConsent: form.privacyConsent,
+      termsConsent: form.termsConsent,
     });
 
     onClose();
@@ -63,9 +87,9 @@ export function AddMemberModal({ isOpen, onClose, onAdd }: AddMemberModalProps) 
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
       />
 
-      <div className="relative z-10 w-full max-w-lg rounded-t-3xl border border-border bg-surface-elevated p-6 sm:rounded-3xl sm:mx-4">
+      <div className="relative z-10 max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-border bg-surface-elevated p-6 sm:mx-4 sm:rounded-3xl">
         <h2 className="text-lg font-semibold">새 회원 추가</h2>
-        <p className="mt-1 text-sm text-muted">기본 정보를 입력해 주세요.</p>
+        <p className="mt-1 text-sm text-muted">기본 정보와 개인정보 동의를 입력해 주세요.</p>
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <FormField label="이름">
@@ -74,9 +98,19 @@ export function AddMemberModal({ isOpen, onClose, onAdd }: AddMemberModalProps) 
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, name: event.target.value }))
               }
-              placeholder="홍길동"
               className={inputClassName}
               required
+            />
+          </FormField>
+
+          <FormField label="이메일 (선택, 앱 초대용)">
+            <input
+              type="email"
+              value={form.email}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, email: event.target.value }))
+              }
+              className={inputClassName}
             />
           </FormField>
 
@@ -89,7 +123,6 @@ export function AddMemberModal({ isOpen, onClose, onAdd }: AddMemberModalProps) 
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, age: event.target.value }))
               }
-              placeholder="28"
               className={inputClassName}
               required
             />
@@ -102,7 +135,6 @@ export function AddMemberModal({ isOpen, onClose, onAdd }: AddMemberModalProps) 
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, phone: event.target.value }))
               }
-              placeholder="010-1234-5678"
               className={inputClassName}
               required
             />
@@ -114,23 +146,55 @@ export function AddMemberModal({ isOpen, onClose, onAdd }: AddMemberModalProps) 
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, goal: event.target.value }))
               }
-              placeholder="체지방 감량"
               className={inputClassName}
               required
             />
           </FormField>
 
+          <div className="space-y-2 rounded-xl border border-border bg-surface px-4 py-3 text-sm">
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={form.privacyConsent}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    privacyConsent: event.target.checked,
+                  }))
+                }
+                className="mt-1"
+                required
+              />
+              <span>개인정보 수집·이용에 동의합니다 (필수)</span>
+            </label>
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={form.termsConsent}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    termsConsent: event.target.checked,
+                  }))
+                }
+                className="mt-1"
+                required
+              />
+              <span>서비스 이용약관에 동의합니다 (필수)</span>
+            </label>
+          </div>
+
           <div className="flex gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-xl border border-border py-3 text-sm font-medium text-muted transition-colors hover:text-foreground"
+              className="flex-1 rounded-xl border border-border py-3 text-sm font-medium text-muted"
             >
               취소
             </button>
             <button
               type="submit"
-              className="flex-1 rounded-xl bg-emerald-500 py-3 text-sm font-semibold text-black transition-colors hover:bg-emerald-400"
+              className="flex-1 rounded-xl bg-emerald-500 py-3 text-sm font-semibold text-black"
             >
               추가
             </button>
@@ -157,4 +221,4 @@ function FormField({
 }
 
 const inputClassName =
-  "w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm outline-none transition-colors placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20";
+  "w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20";

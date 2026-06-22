@@ -7,6 +7,7 @@ import { AuthErrorBanner } from "@/components/AuthErrorBanner";
 import { BookSessionModal } from "@/components/BookSessionModal";
 import { EditMemberModal } from "@/components/EditMemberModal";
 import { StatusBadge } from "@/components/StatusBadge";
+import { MemberInviteButton } from "@/components/MemberInviteButton";
 import { WorkoutRecordSection } from "@/components/WorkoutRecordSection";
 import {
   createScheduleWithMessage,
@@ -144,6 +145,8 @@ export function MemberDetailView({ initialMember }: MemberDetailViewProps) {
           <InfoItem label="이메일" value={member.email} full />
           <InfoItem label="연락처" value={member.phone} full />
         </dl>
+
+        <MemberInviteButton memberId={member.id} />
       </section>
 
       <WorkoutRecordSection memberId={member.id} />

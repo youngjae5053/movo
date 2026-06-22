@@ -1,6 +1,4 @@
 import type { Database } from "./database.types";
-import type { SupabaseBrowserClient } from "./supabase";
-import { getWorkoutMediaPublicUrl } from "./storage";
 import type {
   ChatMessage,
   Member,
@@ -25,6 +23,9 @@ export function mapTrainerRow(row: TrainerRow) {
     id: row.id,
     name: row.name,
     email: row.email,
+    centerName: row.center_name ?? undefined,
+    phone: row.phone ?? undefined,
+    onboardingCompletedAt: row.onboarding_completed_at ?? undefined,
   };
 }
 
@@ -42,31 +43,28 @@ export function mapMemberRow(
     status: row.status,
     joinedAt: row.joined_at,
     lastWorkoutAt: row.last_workout_at ?? row.joined_at,
+    authUserId: row.auth_user_id ?? undefined,
+    privacyConsentAt: row.privacy_consent_at ?? undefined,
+    termsConsentAt: row.terms_consent_at ?? undefined,
     workoutRecords,
   };
 }
 
-export function mapWorkoutMediaRow(
-  row: WorkoutMediaRow,
-  supabase: SupabaseBrowserClient,
-): WorkoutMedia {
+export function mapWorkoutMediaRow(row: WorkoutMediaRow): WorkoutMedia {
   return {
     id: row.id,
-    url: getWorkoutMediaPublicUrl(supabase, row.storage_path),
+    url: "",
     storagePath: row.storage_path,
     type: row.media_type,
     fileName: row.file_name ?? undefined,
   };
 }
 
-export function mapWorkoutRow(
-  row: WorkoutRowWithMedia,
-  supabase: SupabaseBrowserClient,
-): WorkoutRecord {
+export function mapWorkoutRow(row: WorkoutRowWithMedia): WorkoutRecord {
   const media = (row.workout_record_media ?? [])
     .slice()
     .sort((a, b) => a.sort_order - b.sort_order)
-    .map((item) => mapWorkoutMediaRow(item, supabase));
+    .map((item) => mapWorkoutMediaRow(item));
 
   return {
     id: row.id,

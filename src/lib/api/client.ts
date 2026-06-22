@@ -6,6 +6,7 @@ import {
   mapTrainerRow,
   mapWorkoutRow,
 } from "@/lib/mappers";
+import { attachSignedUrlsToRecords } from "@/lib/media-urls";
 import {
   buildWorkoutMediaPath,
   getMediaTypeFromFile,
@@ -27,6 +28,15 @@ export type CreateWorkoutRecordInput = {
   bodyParts?: string[];
   mood?: MoodValue;
   files?: File[];
+};
+
+export type CreateMemberInput = Pick<
+  Member,
+  "name" | "age" | "phone" | "goal"
+> & {
+  email?: string;
+  privacyConsent?: boolean;
+  termsConsent?: boolean;
 };
 
 export type UpdateWorkoutRecordInput = {
@@ -85,6 +95,7 @@ export async function fetchMembers(supabase: SupabaseBrowserClient) {
   const { data, error } = await supabase
     .from("members")
     .select("*")
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -102,6 +113,7 @@ export async function fetchMemberById(
     .from("members")
     .select("*")
     .eq("id", memberId)
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (error) {
@@ -114,24 +126,68 @@ export async function fetchMemberById(
 export async function createMember(
   supabase: SupabaseBrowserClient,
   trainerId: string,
-  input: Pick<Member, "name" | "age" | "phone" | "goal">,
+  input: CreateMemberInput,
 ) {
   const today = getTodayDateString();
+  const now = new Date().toISOString();
+
+  if (!input.privacyConsent || !input.termsConsent) {
+    throw new Error("개인정보 및 이용약관 동의가 필요합니다.");
+  }
 
   const { data, error } = await supabase
     .from("members")
     .insert({
       trainer_id: trainerId,
       name: input.name,
-      email: `${input.name.replace(/\s/g, "").toLowerCase()}@email.com`,
+      email: input.email?.trim() || null,
       phone: input.phone,
       age: input.age,
       goal: input.goal,
       status: "active",
       joined_at: today,
       last_workout_at: today,
+      privacy_consent_at: now,
+      terms_consent_at: now,
     })
     .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapMemberRow(data);
+}
+
+export async function softDeleteMember(
+  supabase: SupabaseBrowserClient,
+  memberId: string,
+) {
+  const { error } = await supabase
+    .from("members")
+    .update({ deleted_at: new Date().toISOString(), status: "inactive" })
+    .eq("id", memberId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function fetchCurrentMemberProfile(supabase: SupabaseBrowserClient) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("로그인이 필요합니다.");
+  }
+
+  const { data, error } = await supabase
+    .from("members")
+    .select("*")
+    .eq("auth_user_id", user.id)
+    .is("deleted_at", null)
     .single();
 
   if (error) {
@@ -174,6 +230,7 @@ export async function fetchWorkoutRecords(
     .from("workout_records")
     .select("*, workout_record_media(*)")
     .eq("member_id", memberId)
+    .is("deleted_at", null)
     .order("record_date", { ascending: false })
     .order("created_at", { ascending: false });
 
@@ -181,7 +238,8 @@ export async function fetchWorkoutRecords(
     throw error;
   }
 
-  return (data ?? []).map((row) => mapWorkoutRow(row, supabase));
+  const records = (data ?? []).map((row) => mapWorkoutRow(row));
+  return attachSignedUrlsToRecords(supabase, records);
 }
 
 async function uploadWorkoutMediaFiles(
@@ -245,7 +303,9 @@ async function fetchWorkoutRecordById(
     throw error;
   }
 
-  return mapWorkoutRow(data, supabase);
+  const record = mapWorkoutRow(data);
+  const [withUrls] = await attachSignedUrlsToRecords(supabase, [record]);
+  return withUrls;
 }
 
 function buildMoodNote(mood?: MoodValue) {
@@ -346,28 +406,9 @@ export async function deleteWorkoutRecord(
   supabase: SupabaseBrowserClient,
   recordId: string,
 ) {
-  const { data: media, error: mediaError } = await supabase
-    .from("workout_record_media")
-    .select("storage_path")
-    .eq("workout_record_id", recordId);
-
-  if (mediaError) {
-    throw mediaError;
-  }
-
-  if (media?.length) {
-    const { error: storageError } = await supabase.storage
-      .from(WORKOUT_MEDIA_BUCKET)
-      .remove(media.map((item) => item.storage_path));
-
-    if (storageError) {
-      throw storageError;
-    }
-  }
-
   const { error } = await supabase
     .from("workout_records")
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq("id", recordId);
 
   if (error) {
@@ -416,15 +457,57 @@ export async function sendTrainerMessage(
   return mapMessageRow(data);
 }
 
+export async function sendMemberMessage(
+  supabase: SupabaseBrowserClient,
+  memberId: string,
+  content: string,
+) {
+  const member = await fetchCurrentMemberProfile(supabase);
+
+  if (member.id !== memberId) {
+    throw new Error("권한이 없습니다.");
+  }
+
+  const { data: memberRow } = await supabase
+    .from("members")
+    .select("trainer_id")
+    .eq("id", memberId)
+    .single();
+
+  if (!memberRow) {
+    throw new Error("회원 정보를 찾을 수 없습니다.");
+  }
+
+  const { data, error } = await supabase
+    .from("messages")
+    .insert({
+      member_id: memberId,
+      trainer_id: memberRow.trainer_id,
+      sender: "member",
+      content,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapMessageRow(data);
+}
+
 export async function markMessagesAsRead(
   supabase: SupabaseBrowserClient,
   memberId: string,
+  reader: "trainer" | "member" = "trainer",
 ) {
+  const senderToMark = reader === "trainer" ? "member" : "trainer";
+
   const { error } = await supabase
     .from("messages")
     .update({ read_at: new Date().toISOString() })
     .eq("member_id", memberId)
-    .eq("sender", "member")
+    .eq("sender", senderToMark)
     .is("read_at", null);
 
   if (error) {
@@ -433,62 +516,28 @@ export async function markMessagesAsRead(
 }
 
 export async function fetchChatPreviews(supabase: SupabaseBrowserClient) {
-  const members = await fetchMembers(supabase);
-
-  const { data: messages, error } = await supabase
-    .from("messages")
-    .select("*")
-    .order("sent_at", { ascending: false });
+  const { data, error } = await supabase.rpc("get_trainer_chat_previews");
 
   if (error) {
     throw error;
   }
 
-  const latestByMember = new Map<string, ReturnType<typeof mapMessageRow>>();
-  const unreadByMember = new Map<string, number>();
+  const members = await fetchMembers(supabase);
+  const memberMap = new Map(members.map((member) => [member.id, member]));
 
-  for (const row of messages ?? []) {
-    if (!latestByMember.has(row.member_id)) {
-      latestByMember.set(row.member_id, mapMessageRow(row));
-    }
-  }
+  return (data ?? [])
+    .map((row) => {
+      const member = memberMap.get(row.member_id);
+      if (!member) return null;
 
-  for (const member of members) {
-    const { count, error: unreadError } = await supabase
-      .from("messages")
-      .select("*", { count: "exact", head: true })
-      .eq("member_id", member.id)
-      .eq("sender", "member")
-      .is("read_at", null);
-
-    if (unreadError) {
-      throw unreadError;
-    }
-
-    unreadByMember.set(member.id, count ?? 0);
-  }
-
-  return members
-    .map((member) => {
-      const latest = latestByMember.get(member.id);
       return {
         member,
-        preview: latest?.content ?? "대화를 시작해보세요",
-        time: latest?.sentAt,
-        unreadCount: unreadByMember.get(member.id) ?? 0,
+        preview: row.preview,
+        time: row.sent_at ?? undefined,
+        unreadCount: Number(row.unread_count ?? 0),
       };
     })
-    .sort((a, b) => {
-      if (a.unreadCount !== b.unreadCount) {
-        return b.unreadCount - a.unreadCount;
-      }
-      if (!a.time && !b.time) {
-        return a.member.name.localeCompare(b.member.name, "ko");
-      }
-      if (!a.time) return 1;
-      if (!b.time) return -1;
-      return new Date(b.time).getTime() - new Date(a.time).getTime();
-    });
+    .filter((item): item is NonNullable<typeof item> => item !== null);
 }
 
 export async function fetchWeekSchedules(supabase: SupabaseBrowserClient) {
@@ -500,6 +549,8 @@ export async function fetchWeekSchedules(supabase: SupabaseBrowserClient) {
     .select("*, members(name)")
     .gte("schedule_date", today)
     .lte("schedule_date", weekEnd)
+    .is("deleted_at", null)
+    .is("cancelled_at", null)
     .order("schedule_date", { ascending: true })
     .order("schedule_time", { ascending: true });
 
@@ -525,7 +576,9 @@ export async function fetchTodayScheduleCount(
   const { count, error } = await supabase
     .from("schedules")
     .select("*", { count: "exact", head: true })
-    .eq("schedule_date", today);
+    .eq("schedule_date", today)
+    .is("deleted_at", null)
+    .is("cancelled_at", null);
 
   if (error) {
     throw error;
@@ -541,32 +594,26 @@ export async function createScheduleWithMessage(
   date: string,
   time: string,
 ) {
-  const { data: schedule, error: scheduleError } = await supabase
+  const { data: scheduleId, error } = await supabase.rpc(
+    "create_schedule_with_message",
+    {
+      p_member_id: memberId,
+      p_trainer_id: trainerId,
+      p_schedule_date: date,
+      p_schedule_time: `${time}:00`,
+      p_message_content: formatReservationChatMessage(date, time),
+    },
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  const { data: schedule } = await supabase
     .from("schedules")
-    .insert({
-      member_id: memberId,
-      trainer_id: trainerId,
-      schedule_date: date,
-      schedule_time: `${time}:00`,
-      status: "confirmed",
-    })
     .select("*")
+    .eq("id", scheduleId)
     .single();
-
-  if (scheduleError) {
-    throw scheduleError;
-  }
-
-  const { error: messageError } = await supabase.from("messages").insert({
-    member_id: memberId,
-    trainer_id: trainerId,
-    sender: "trainer",
-    content: formatReservationChatMessage(date, time),
-  });
-
-  if (messageError) {
-    throw messageError;
-  }
 
   const { data: member } = await supabase
     .from("members")
@@ -574,5 +621,201 @@ export async function createScheduleWithMessage(
     .eq("id", memberId)
     .single();
 
+  if (!schedule) {
+    throw new Error("예약을 생성하지 못했습니다.");
+  }
+
   return mapScheduleRow(schedule, member?.name ?? "회원");
+}
+
+export async function cancelSchedule(
+  supabase: SupabaseBrowserClient,
+  scheduleId: string,
+) {
+  const { error } = await supabase
+    .from("schedules")
+    .update({ cancelled_at: new Date().toISOString(), status: "pending" })
+    .eq("id", scheduleId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function completeTrainerOnboarding(
+  supabase: SupabaseBrowserClient,
+  input: { name: string; centerName: string; phone?: string },
+) {
+  const trainer = await ensureTrainerProfile(supabase);
+
+  const { data, error } = await supabase
+    .from("trainers")
+    .update({
+      name: input.name.trim(),
+      center_name: input.centerName.trim(),
+      phone: input.phone?.trim() || null,
+      onboarding_completed_at: new Date().toISOString(),
+    })
+    .eq("id", trainer.id)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapTrainerRow(data);
+}
+
+export async function createMemberInvite(
+  supabase: SupabaseBrowserClient,
+  memberId: string,
+  trainerId: string,
+) {
+  const { data, error } = await supabase
+    .from("member_invites")
+    .insert({
+      member_id: memberId,
+      trainer_id: trainerId,
+    })
+    .select("token, expires_at")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+export async function fetchMemberInviteByToken(
+  supabase: SupabaseBrowserClient,
+  token: string,
+) {
+  const { data, error } = await supabase.rpc("get_member_invite_by_token", {
+    p_token: token,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.[0] ?? null;
+}
+
+export async function redeemMemberInvite(
+  supabase: SupabaseBrowserClient,
+  token: string,
+  password: string,
+) {
+  const invite = await fetchMemberInviteByToken(supabase, token);
+
+  if (!invite) {
+    throw new Error("유효하지 않거나 만료된 초대 링크입니다.");
+  }
+
+  const email =
+    invite.member_email ??
+    `${invite.member_phone.replace(/\D/g, "")}@member.movo.local`;
+
+  const { data: authData, error: signUpError } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { name: invite.member_name, role: "member" },
+    },
+  });
+
+  if (signUpError || !authData.user) {
+    throw signUpError ?? new Error("회원 가입에 실패했습니다.");
+  }
+
+  const { error: completeError } = await supabase.rpc("complete_member_invite", {
+    p_token: token,
+  });
+
+  if (completeError) {
+    throw completeError;
+  }
+
+  return { email };
+}
+
+export async function createDataRequest(
+  supabase: SupabaseBrowserClient,
+  input: {
+    requestType: "export" | "deletion";
+    requesterRole: "trainer" | "member";
+    notes?: string;
+  },
+) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("로그인이 필요합니다.");
+  }
+
+  let trainerId: string | null = null;
+  let memberId: string | null = null;
+
+  if (input.requesterRole === "trainer") {
+    const trainer = await ensureTrainerProfile(supabase);
+    trainerId = trainer.id;
+  } else {
+    const member = await fetchCurrentMemberProfile(supabase);
+    memberId = member.id;
+    const { data: memberRow } = await supabase
+      .from("members")
+      .select("trainer_id")
+      .eq("id", member.id)
+      .single();
+    trainerId = memberRow?.trainer_id ?? null;
+  }
+
+  const { error } = await supabase.from("data_requests").insert({
+    requester_role: input.requesterRole,
+    requester_auth_id: user.id,
+    trainer_id: trainerId,
+    member_id: memberId,
+    request_type: input.requestType,
+    notes: input.notes?.trim() || null,
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function fetchMemberWeekSchedules(supabase: SupabaseBrowserClient) {
+  const member = await fetchCurrentMemberProfile(supabase);
+  const today = getTodayDateString();
+  const weekEnd = addDaysToDateString(today, 30);
+
+  const { data, error } = await supabase
+    .from("schedules")
+    .select("*")
+    .eq("member_id", member.id)
+    .gte("schedule_date", today)
+    .lte("schedule_date", weekEnd)
+    .is("deleted_at", null)
+    .is("cancelled_at", null)
+    .order("schedule_date", { ascending: true })
+    .order("schedule_time", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  const reservations = (data ?? []).map((row) =>
+    mapScheduleRow(row, member.name),
+  );
+
+  return groupReservationsByDate(reservations);
+}
+
+export async function fetchMemberWorkoutRecords(supabase: SupabaseBrowserClient) {
+  const member = await fetchCurrentMemberProfile(supabase);
+  return fetchWorkoutRecords(supabase, member.id);
 }

@@ -14,8 +14,10 @@ import {
   ensureTrainerProfile,
   fetchMessages,
   markMessagesAsRead,
+  sendMemberMessage,
   sendTrainerMessage,
 } from "@/lib/api/client";
+import { mapMessageRow } from "@/lib/mappers";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
 import type { ChatMessage } from "@/lib/types";
 import { getInitials } from "@/lib/utils";
@@ -23,9 +25,14 @@ import { getInitials } from "@/lib/utils";
 type ChatRoomProps = {
   memberId: string;
   memberName: string;
+  mode?: "trainer" | "member";
 };
 
-export function ChatRoom({ memberId, memberName }: ChatRoomProps) {
+export function ChatRoom({
+  memberId,
+  memberName,
+  mode = "trainer",
+}: ChatRoomProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
   const [isInputReady, setIsInputReady] = useState(false);
@@ -35,6 +42,7 @@ export function ChatRoom({ memberId, memberName }: ChatRoomProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const memberInitial = getInitials(memberName);
+  const bottomOffset = mode === "member" ? "bottom-20" : "bottom-0";
 
   const loadMessages = useCallback(async () => {
     setIsLoading(true);
@@ -44,7 +52,7 @@ export function ChatRoom({ memberId, memberName }: ChatRoomProps) {
       const supabase = createBrowserSupabaseClient();
       const data = await fetchMessages(supabase, memberId);
       setMessages(data);
-      await markMessagesAsRead(supabase, memberId);
+      await markMessagesAsRead(supabase, memberId, mode);
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -54,11 +62,41 @@ export function ChatRoom({ memberId, memberName }: ChatRoomProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [memberId]);
+  }, [memberId, mode]);
 
   useEffect(() => {
     loadMessages();
   }, [loadMessages]);
+
+  useEffect(() => {
+    const supabase = createBrowserSupabaseClient();
+    const channel = supabase
+      .channel(`messages:${memberId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `member_id=eq.${memberId}`,
+        },
+        (payload) => {
+          const row = payload.new as Parameters<typeof mapMessageRow>[0];
+          const message = mapMessageRow(row);
+          setMessages((prev) =>
+            prev.some((item) => item.id === message.id)
+              ? prev
+              : [...prev, message],
+          );
+          void markMessagesAsRead(supabase, memberId, mode);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [memberId, mode]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -90,13 +128,15 @@ export function ChatRoom({ memberId, memberName }: ChatRoomProps) {
 
     try {
       const supabase = createBrowserSupabaseClient();
-      const trainer = await ensureTrainerProfile(supabase);
-      const newMessage = await sendTrainerMessage(
-        supabase,
-        memberId,
-        trainer.id,
-        trimmed,
-      );
+      const newMessage =
+        mode === "member"
+          ? await sendMemberMessage(supabase, memberId, trimmed)
+          : await sendTrainerMessage(
+              supabase,
+              memberId,
+              (await ensureTrainerProfile(supabase)).id,
+              trimmed,
+            );
       setMessages((prev) => [...prev, newMessage]);
       resetInput();
     } catch (error) {
@@ -140,7 +180,9 @@ export function ChatRoom({ memberId, memberName }: ChatRoomProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 backdrop-blur-md">
+      <div
+        className={`fixed inset-x-0 ${bottomOffset} z-20 border-t border-border bg-background/95 backdrop-blur-md`}
+      >
         <form
           onSubmit={(event) => event.preventDefault()}
           autoComplete="off"

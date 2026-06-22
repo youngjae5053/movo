@@ -53,12 +53,23 @@ export function MemberListSection() {
   const activeCount = members.filter((member) => member.status === "active").length;
 
   async function handleAddMember(
-    data: Pick<Member, "name" | "age" | "phone" | "goal">,
+    data: Pick<Member, "name" | "age" | "phone" | "goal" | "email"> & {
+      privacyConsent: boolean;
+      termsConsent: boolean;
+    },
   ) {
     try {
       const supabase = createBrowserSupabaseClient();
       const trainer = await ensureTrainerProfile(supabase);
-      const newMember = await createMember(supabase, trainer.id, data);
+      const newMember = await createMember(supabase, trainer.id, {
+        name: data.name,
+        age: data.age,
+        phone: data.phone,
+        goal: data.goal,
+        email: data.email || undefined,
+        privacyConsent: data.privacyConsent,
+        termsConsent: data.termsConsent,
+      });
       setMembers((prev) => [newMember, ...prev]);
     } catch (error) {
       setErrorMessage(

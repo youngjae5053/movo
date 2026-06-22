@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { ensureTrainerProfile } from "@/lib/api/client";
+import { getPostLoginPath, resolveUserProfile } from "@/lib/auth/roles";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
 
 export function LoginForm() {
@@ -30,14 +32,27 @@ export function LoginForm() {
     }
 
     try {
-      await ensureTrainerProfile(supabase);
-      router.push("/");
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error("사용자 정보를 확인하지 못했습니다.");
+      }
+
+      const profile = await resolveUserProfile(supabase, user.id);
+
+      if (profile.role === "trainer") {
+        await ensureTrainerProfile(supabase);
+      }
+
+      router.push(getPostLoginPath(profile));
       router.refresh();
     } catch (profileError) {
       setErrorMessage(
         profileError instanceof Error
           ? profileError.message
-          : "트레이너 프로필을 생성하지 못했습니다.",
+          : "로그인 후 프로필을 확인하지 못했습니다.",
       );
       setIsLoading(false);
     }
@@ -55,16 +70,13 @@ export function LoginForm() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="trainer@example.com"
-          className="w-full rounded-xl border border-border bg-surface-elevated px-4 py-3.5 text-sm outline-none transition-colors placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20"
+          className={inputClassName}
           required
         />
       </div>
 
       <div className="space-y-2">
-        <label
-          htmlFor="password"
-          className="text-sm font-medium text-zinc-300"
-        >
+        <label htmlFor="password" className="text-sm font-medium text-zinc-300">
           비밀번호
         </label>
         <input
@@ -73,7 +85,7 @@ export function LoginForm() {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           placeholder="비밀번호를 입력하세요"
-          className="w-full rounded-xl border border-border bg-surface-elevated px-4 py-3.5 text-sm outline-none transition-colors placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20"
+          className={inputClassName}
           required
         />
       </div>
@@ -89,6 +101,18 @@ export function LoginForm() {
       >
         {isLoading ? "로그인 중..." : "로그인"}
       </button>
+
+      <div className="flex items-center justify-between text-sm">
+        <Link href="/signup" className="text-emerald-400 hover:underline">
+          트레이너 회원가입
+        </Link>
+        <Link href="/forgot-password" className="text-muted hover:text-foreground">
+          비밀번호 찾기
+        </Link>
+      </div>
     </form>
   );
 }
+
+const inputClassName =
+  "w-full rounded-xl border border-border bg-surface-elevated px-4 py-3.5 text-sm outline-none transition-colors placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20";

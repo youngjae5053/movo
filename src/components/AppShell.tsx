@@ -83,27 +83,46 @@ export function AppShell({
               )}
             </div>
             {showLogout ? (
-              <button
-                type="button"
-                onClick={handleLogout}
-                aria-label="로그아웃"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-muted transition-colors hover:border-emerald-500/40 hover:text-emerald-400"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+              <div className="flex shrink-0 items-center gap-1">
+                <Link
+                  href="/settings"
+                  aria-label="설정"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted transition-colors hover:border-emerald-500/40 hover:text-emerald-400"
                 >
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-              </button>
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+                  </svg>
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  aria-label="로그아웃"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted transition-colors hover:border-emerald-500/40 hover:text-emerald-400"
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
+                </button>
+              </div>
             ) : null}
           </div>
         </header>

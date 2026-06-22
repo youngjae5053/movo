@@ -33,11 +33,18 @@ export type Member = {
   joinedAt: string;
   lastWorkoutAt: string;
   workoutRecords: WorkoutRecord[];
+  authUserId?: string;
+  privacyConsentAt?: string;
+  termsConsentAt?: string;
 };
 
-export type Trainer = {
+export type TrainerProfile = {
+  id: string;
   name: string;
   email: string;
+  centerName?: string;
+  phone?: string;
+  onboardingCompletedAt?: string;
 };
 
 export type ChatSender = "trainer" | "member";

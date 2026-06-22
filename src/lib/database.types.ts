@@ -15,6 +15,9 @@ export type Database = {
           auth_user_id: string;
           name: string;
           email: string;
+          center_name: string | null;
+          phone: string | null;
+          onboarding_completed_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -23,6 +26,9 @@ export type Database = {
           auth_user_id: string;
           name: string;
           email: string;
+          center_name?: string | null;
+          phone?: string | null;
+          onboarding_completed_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -31,6 +37,9 @@ export type Database = {
           auth_user_id?: string;
           name?: string;
           email?: string;
+          center_name?: string | null;
+          phone?: string | null;
+          onboarding_completed_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -48,6 +57,10 @@ export type Database = {
           status: "active" | "inactive" | "paused";
           joined_at: string;
           last_workout_at: string | null;
+          auth_user_id: string | null;
+          privacy_consent_at: string | null;
+          terms_consent_at: string | null;
+          deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -62,6 +75,10 @@ export type Database = {
           status?: "active" | "inactive" | "paused";
           joined_at?: string;
           last_workout_at?: string | null;
+          auth_user_id?: string | null;
+          privacy_consent_at?: string | null;
+          terms_consent_at?: string | null;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -76,6 +93,10 @@ export type Database = {
           status?: "active" | "inactive" | "paused";
           joined_at?: string;
           last_workout_at?: string | null;
+          auth_user_id?: string | null;
+          privacy_consent_at?: string | null;
+          terms_consent_at?: string | null;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -100,6 +121,7 @@ export type Database = {
           duration: number | null;
           exercises: string[] | null;
           note: string | null;
+          deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -113,6 +135,7 @@ export type Database = {
           duration?: number | null;
           exercises?: string[] | null;
           note?: string | null;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -126,6 +149,7 @@ export type Database = {
           duration?: number | null;
           exercises?: string[] | null;
           note?: string | null;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -256,6 +280,8 @@ export type Database = {
           schedule_date: string;
           schedule_time: string;
           status: "confirmed" | "pending";
+          deleted_at: string | null;
+          cancelled_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -266,6 +292,8 @@ export type Database = {
           schedule_date: string;
           schedule_time: string;
           status?: "confirmed" | "pending";
+          deleted_at?: string | null;
+          cancelled_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -276,6 +304,8 @@ export type Database = {
           schedule_date?: string;
           schedule_time?: string;
           status?: "confirmed" | "pending";
+          deleted_at?: string | null;
+          cancelled_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -296,12 +326,118 @@ export type Database = {
           },
         ];
       };
+      member_invites: {
+        Row: {
+          id: string;
+          member_id: string;
+          trainer_id: string;
+          token: string;
+          expires_at: string;
+          used_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          member_id: string;
+          trainer_id: string;
+          token?: string;
+          expires_at?: string;
+          used_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          member_id?: string;
+          trainer_id?: string;
+          token?: string;
+          expires_at?: string;
+          used_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      data_requests: {
+        Row: {
+          id: string;
+          requester_role: "trainer" | "member";
+          requester_auth_id: string;
+          member_id: string | null;
+          trainer_id: string | null;
+          request_type: "export" | "deletion";
+          status: "pending" | "processing" | "completed" | "rejected";
+          notes: string | null;
+          created_at: string;
+          completed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          requester_role: "trainer" | "member";
+          requester_auth_id: string;
+          member_id?: string | null;
+          trainer_id?: string | null;
+          request_type: "export" | "deletion";
+          status?: "pending" | "processing" | "completed" | "rejected";
+          notes?: string | null;
+          created_at?: string;
+          completed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          requester_role?: "trainer" | "member";
+          requester_auth_id?: string;
+          member_id?: string | null;
+          trainer_id?: string | null;
+          request_type?: "export" | "deletion";
+          status?: "pending" | "processing" | "completed" | "rejected";
+          notes?: string | null;
+          created_at?: string;
+          completed_at?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
       current_trainer_id: {
         Args: Record<PropertyKey, never>;
         Returns: string;
+      };
+      current_member_id: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
+      create_schedule_with_message: {
+        Args: {
+          p_member_id: string;
+          p_trainer_id: string;
+          p_schedule_date: string;
+          p_schedule_time: string;
+          p_message_content: string;
+        };
+        Returns: string;
+      };
+      get_trainer_chat_previews: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          member_id: string;
+          member_name: string;
+          preview: string;
+          sent_at: string | null;
+          unread_count: number;
+        }[];
+      };
+      get_member_invite_by_token: {
+        Args: { p_token: string };
+        Returns: {
+          member_id: string;
+          member_name: string;
+          member_email: string | null;
+          member_phone: string;
+        }[];
+      };
+      complete_member_invite: {
+        Args: { p_token: string };
+        Returns: undefined;
       };
     };
     Enums: Record<string, never>;

@@ -11,12 +11,14 @@ type WorkoutRecordCardProps = {
   record: WorkoutRecord;
   onEdit: (record: WorkoutRecord) => void;
   onDelete: (record: WorkoutRecord) => void;
+  readOnly?: boolean;
 };
 
 export function WorkoutRecordCard({
   record,
   onEdit,
   onDelete,
+  readOnly = false,
 }: WorkoutRecordCardProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
@@ -59,6 +61,8 @@ export function WorkoutRecordCard({
         <div className="pointer-events-none absolute -bottom-8 left-8 h-24 w-24 rounded-full bg-white/[0.03] blur-2xl" />
 
         <div ref={menuRef} className="absolute right-3 top-3 z-30">
+          {!readOnly ? (
+            <>
           <button
             type="button"
             onClick={() => setIsMenuOpen((prev) => !prev)}
@@ -125,6 +129,8 @@ export function WorkoutRecordCard({
                 삭제하기
               </button>
             </div>
+          ) : null}
+            </>
           ) : null}
         </div>
 
