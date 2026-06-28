@@ -24,8 +24,12 @@ const TIME_SLOTS = [
 type BookSessionModalProps = {
   isOpen: boolean;
   memberName: string;
+  title?: string;
+  submitLabel?: string;
+  initialDate?: string;
+  initialTime?: string;
   onClose: () => void;
-  onBook: (data: { date: string; time: string }) => void;
+  onBook: (data: { date: string; time: string }) => void | Promise<void>;
 };
 
 type FormState = {
@@ -36,6 +40,10 @@ type FormState = {
 export function BookSessionModal({
   isOpen,
   memberName,
+  title = "수업 예약",
+  submitLabel = "예약하기",
+  initialDate,
+  initialTime,
   onClose,
   onBook,
 }: BookSessionModalProps) {
@@ -43,29 +51,38 @@ export function BookSessionModal({
   const maxDate = addDaysToDateString(today, 30);
 
   const [form, setForm] = useState<FormState>({
-    date: today,
-    time: "10:00",
+    date: initialDate ?? today,
+    time: initialTime ?? "10:00",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      setForm({ date: today, time: "10:00" });
+      setForm({
+        date: initialDate ?? today,
+        time: initialTime ?? "10:00",
+      });
     }
-  }, [isOpen, today]);
+  }, [isOpen, today, initialDate, initialTime]);
 
   if (!isOpen) {
     return null;
   }
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
 
     if (!form.date || !form.time) {
       return;
     }
 
-    onBook(form);
-    onClose();
+    setIsSubmitting(true);
+    try {
+      await onBook(form);
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -78,7 +95,7 @@ export function BookSessionModal({
       />
 
       <div className="relative z-10 w-full max-w-lg rounded-t-3xl border border-border bg-surface-elevated p-6 sm:mx-4 sm:rounded-3xl">
-        <h2 className="text-lg font-semibold">수업 예약</h2>
+        <h2 className="text-lg font-semibold">{title}</h2>
         <p className="mt-1 text-sm text-muted">{memberName} 회원</p>
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
@@ -125,9 +142,10 @@ export function BookSessionModal({
             </button>
             <button
               type="submit"
-              className="flex-1 rounded-xl bg-emerald-500 py-3 text-sm font-semibold text-black transition-colors hover:bg-emerald-400"
+              disabled={isSubmitting}
+              className="flex-1 rounded-xl bg-emerald-500 py-3 text-sm font-semibold text-black transition-colors hover:bg-emerald-400 disabled:opacity-60"
             >
-              예약하기
+              {isSubmitting ? "처리 중..." : submitLabel}
             </button>
           </div>
         </form>

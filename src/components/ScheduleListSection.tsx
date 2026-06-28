@@ -3,8 +3,15 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AuthErrorBanner } from "@/components/AuthErrorBanner";
+import { BookSessionModal } from "@/components/BookSessionModal";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { ReservationStatusBadge } from "@/components/ReservationStatusBadge";
-import { fetchWeekSchedules } from "@/lib/api/client";
+import {
+  cancelSchedule,
+  confirmSchedule,
+  fetchWeekSchedules,
+  updateSchedule,
+} from "@/lib/api/client";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
 import type { Reservation } from "@/lib/types";
 import { formatReservationTime, formatScheduleDay } from "@/lib/utils";
@@ -16,6 +23,8 @@ export function ScheduleListSection() {
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [rescheduling, setRescheduling] = useState<Reservation | null>(null);
 
   const loadSchedules = useCallback(async () => {
     setIsLoading(true);
@@ -40,6 +49,55 @@ export function ScheduleListSection() {
   useEffect(() => {
     loadSchedules();
   }, [loadSchedules]);
+
+  async function handleConfirm(scheduleId: string) {
+    setErrorMessage(null);
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      await confirmSchedule(supabase, scheduleId);
+      await loadSchedules();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "예약 확인에 실패했습니다.",
+      );
+    }
+  }
+
+  async function handleCancelConfirm() {
+    if (!cancellingId) return;
+
+    setErrorMessage(null);
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      await cancelSchedule(supabase, cancellingId);
+      await loadSchedules();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "예약 취소에 실패했습니다.",
+      );
+    } finally {
+      setCancellingId(null);
+    }
+  }
+
+  async function handleReschedule(data: { date: string; time: string }) {
+    if (!rescheduling) return;
+
+    setErrorMessage(null);
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      await updateSchedule(supabase, rescheduling.id, data);
+      await loadSchedules();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "일정 변경에 실패했습니다.",
+      );
+      throw error;
+    }
+  }
 
   if (isLoading) {
     return (
@@ -72,18 +130,43 @@ export function ScheduleListSection() {
               <ul className="space-y-2">
                 {items.map((reservation) => (
                   <li key={reservation.id}>
-                    <Link
-                      href={`/members/${reservation.memberId}`}
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface-elevated px-4 py-3 transition-colors hover:border-emerald-500/30"
-                    >
-                      <div className="min-w-0">
+                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface-elevated px-4 py-3">
+                      <Link
+                        href={`/members/${reservation.memberId}`}
+                        className="min-w-0 flex-1 transition-colors hover:text-emerald-400"
+                      >
                         <p className="font-semibold">{reservation.memberName}</p>
                         <p className="mt-0.5 text-sm text-muted">
                           {formatReservationTime(reservation.time)}
                         </p>
+                      </Link>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <ReservationStatusBadge status={reservation.status} />
+                        {reservation.status === "pending" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleConfirm(reservation.id)}
+                            className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs text-emerald-400 hover:bg-emerald-500/20"
+                          >
+                            확인
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => setRescheduling(reservation)}
+                          className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-zinc-400 hover:border-emerald-500/30 hover:text-emerald-400"
+                        >
+                          변경
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCancellingId(reservation.id)}
+                          className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-red-400 hover:border-red-500/30"
+                        >
+                          취소
+                        </button>
                       </div>
-                      <ReservationStatusBadge status={reservation.status} />
-                    </Link>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -91,6 +174,26 @@ export function ScheduleListSection() {
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={cancellingId !== null}
+        title="예약을 취소할까요?"
+        description="취소된 예약은 목록에서 제거됩니다."
+        confirmLabel="취소하기"
+        onConfirm={handleCancelConfirm}
+        onClose={() => setCancellingId(null)}
+      />
+
+      <BookSessionModal
+        isOpen={rescheduling !== null}
+        memberName={rescheduling?.memberName ?? ""}
+        title="일정 변경"
+        submitLabel="변경하기"
+        initialDate={rescheduling?.date}
+        initialTime={rescheduling?.time}
+        onClose={() => setRescheduling(null)}
+        onBook={handleReschedule}
+      />
     </>
   );
 }

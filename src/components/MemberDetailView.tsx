@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { AuthErrorBanner } from "@/components/AuthErrorBanner";
 import { BookSessionModal } from "@/components/BookSessionModal";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { EditMemberModal } from "@/components/EditMemberModal";
 import { StatusBadge } from "@/components/StatusBadge";
 import { MemberInviteButton } from "@/components/MemberInviteButton";
@@ -12,6 +14,7 @@ import { WorkoutRecordSection } from "@/components/WorkoutRecordSection";
 import {
   createScheduleWithMessage,
   ensureTrainerProfile,
+  softDeleteMember,
   updateMember,
 } from "@/lib/api/client";
 import type { Member } from "@/lib/types";
@@ -23,9 +26,12 @@ type MemberDetailViewProps = {
 };
 
 export function MemberDetailView({ initialMember }: MemberDetailViewProps) {
+  const router = useRouter();
   const [member, setMember] = useState(initialMember);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function handleBookSession(data: { date: string; time: string }) {
@@ -45,6 +51,7 @@ export function MemberDetailView({ initialMember }: MemberDetailViewProps) {
       setErrorMessage(
         error instanceof Error ? error.message : "예약 생성에 실패했습니다.",
       );
+      throw error;
     }
   }
 
@@ -61,6 +68,25 @@ export function MemberDetailView({ initialMember }: MemberDetailViewProps) {
       setErrorMessage(
         error instanceof Error ? error.message : "회원 정보 수정에 실패했습니다.",
       );
+    }
+  }
+
+  async function handleDeleteMember() {
+    setErrorMessage(null);
+    setIsDeleting(true);
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      await softDeleteMember(supabase, member.id);
+      router.push("/");
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "회원 삭제에 실패했습니다.",
+      );
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteOpen(false);
     }
   }
 
@@ -147,6 +173,14 @@ export function MemberDetailView({ initialMember }: MemberDetailViewProps) {
         </dl>
 
         <MemberInviteButton memberId={member.id} />
+
+        <button
+          type="button"
+          onClick={() => setIsDeleteOpen(true)}
+          className="mt-5 w-full rounded-xl border border-red-500/20 py-2.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10"
+        >
+          회원 삭제
+        </button>
       </section>
 
       <WorkoutRecordSection memberId={member.id} />
@@ -163,6 +197,15 @@ export function MemberDetailView({ initialMember }: MemberDetailViewProps) {
         member={member}
         onClose={() => setIsEditOpen(false)}
         onSave={handleSaveEdit}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteOpen}
+        title="회원을 삭제할까요?"
+        description="삭제된 회원은 목록에서 숨겨지며, 관련 데이터는 보관됩니다. 이 작업은 되돌릴 수 없습니다."
+        confirmLabel={isDeleting ? "삭제 중..." : "삭제"}
+        onConfirm={handleDeleteMember}
+        onClose={() => setIsDeleteOpen(false)}
       />
     </AppShell>
   );

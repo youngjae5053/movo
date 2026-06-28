@@ -16,6 +16,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Movo",
   description: "트레이너를 위한 회원 관리 앱",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "Movo",
+  },
 };
 
 export const viewport: Viewport = {

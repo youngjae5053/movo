@@ -21,6 +21,7 @@ export function MemberListSection() {
   const [todayReservationCount, setTodayReservationCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -51,6 +52,16 @@ export function MemberListSection() {
   }, [loadData]);
 
   const activeCount = members.filter((member) => member.status === "active").length;
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredMembers = normalizedQuery
+    ? members.filter(
+        (member) =>
+          member.name.toLowerCase().includes(normalizedQuery) ||
+          member.phone.includes(normalizedQuery) ||
+          member.email.toLowerCase().includes(normalizedQuery) ||
+          member.goal.toLowerCase().includes(normalizedQuery),
+      )
+    : members;
 
   async function handleAddMember(
     data: Pick<Member, "name" | "age" | "phone" | "goal" | "email"> & {
@@ -122,14 +133,29 @@ export function MemberListSection() {
       </section>
 
       <section className="pb-8">
-        <h2 className="mb-3 text-sm font-medium text-zinc-300">회원 목록</h2>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-medium text-zinc-300">회원 목록</h2>
+          {members.length > 0 ? (
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="이름, 연락처 검색"
+              className="w-44 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs outline-none focus:border-emerald-500/40 sm:w-52"
+            />
+          ) : null}
+        </div>
         {members.length === 0 ? (
           <div className="rounded-2xl border border-border bg-surface-elevated px-4 py-10 text-center text-sm text-muted">
             등록된 회원이 없습니다. + 버튼으로 추가해 보세요.
           </div>
+        ) : filteredMembers.length === 0 ? (
+          <div className="rounded-2xl border border-border bg-surface-elevated px-4 py-10 text-center text-sm text-muted">
+            검색 결과가 없습니다.
+          </div>
         ) : (
           <ul className="space-y-3">
-            {members.map((member) => (
+            {filteredMembers.map((member) => (
               <li key={member.id}>
                 <MemberCard member={member} />
               </li>

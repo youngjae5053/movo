@@ -45,6 +45,19 @@ export type UpdateWorkoutRecordInput = {
   duration?: number;
   bodyParts?: string[];
   mood?: MoodValue;
+  files?: File[];
+  removeMediaIds?: string[];
+};
+
+export type UpdateTrainerProfileInput = {
+  name: string;
+  centerName?: string;
+  phone?: string;
+};
+
+export type FetchWorkoutRecordsOptions = {
+  limit?: number;
+  offset?: number;
 };
 
 export async function ensureTrainerProfile(supabase: SupabaseBrowserClient) {
@@ -225,14 +238,19 @@ export async function updateMember(
 export async function fetchWorkoutRecords(
   supabase: SupabaseBrowserClient,
   memberId: string,
+  options: FetchWorkoutRecordsOptions = {},
 ) {
+  const limit = options.limit ?? 50;
+  const offset = options.offset ?? 0;
+
   const { data, error } = await supabase
     .from("workout_records")
     .select("*, workout_record_media(*)")
     .eq("member_id", memberId)
     .is("deleted_at", null)
     .order("record_date", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (error) {
     throw error;
@@ -240,6 +258,35 @@ export async function fetchWorkoutRecords(
 
   const records = (data ?? []).map((row) => mapWorkoutRow(row));
   return attachSignedUrlsToRecords(supabase, records);
+}
+
+async function deleteWorkoutMediaByIds(
+  supabase: SupabaseBrowserClient,
+  mediaIds: string[],
+) {
+  if (mediaIds.length === 0) return;
+
+  const { data: media, error: fetchError } = await supabase
+    .from("workout_record_media")
+    .select("id, storage_path")
+    .in("id", mediaIds);
+
+  if (fetchError) throw fetchError;
+
+  if (media?.length) {
+    const { error: storageError } = await supabase.storage
+      .from(WORKOUT_MEDIA_BUCKET)
+      .remove(media.map((item) => item.storage_path));
+
+    if (storageError) throw storageError;
+
+    const { error: deleteError } = await supabase
+      .from("workout_record_media")
+      .delete()
+      .in("id", mediaIds);
+
+    if (deleteError) throw deleteError;
+  }
 }
 
 async function uploadWorkoutMediaFiles(
@@ -380,6 +427,8 @@ export async function createWorkoutRecord(
 export async function updateWorkoutRecord(
   supabase: SupabaseBrowserClient,
   recordId: string,
+  memberId: string,
+  trainerId: string,
   input: UpdateWorkoutRecordInput,
 ) {
   const trimmedContent = input.content?.trim();
@@ -397,6 +446,20 @@ export async function updateWorkoutRecord(
 
   if (error) {
     throw error;
+  }
+
+  if (input.removeMediaIds?.length) {
+    await deleteWorkoutMediaByIds(supabase, input.removeMediaIds);
+  }
+
+  if (input.files?.length) {
+    await uploadWorkoutMediaFiles(
+      supabase,
+      trainerId,
+      memberId,
+      recordId,
+      input.files,
+    );
   }
 
   return fetchWorkoutRecordById(supabase, recordId);
@@ -519,7 +582,7 @@ export async function fetchChatPreviews(supabase: SupabaseBrowserClient) {
   const { data, error } = await supabase.rpc("get_trainer_chat_previews");
 
   if (error) {
-    throw error;
+    return fetchChatPreviewsFallback(supabase);
   }
 
   const members = await fetchMembers(supabase);
@@ -538,6 +601,56 @@ export async function fetchChatPreviews(supabase: SupabaseBrowserClient) {
       };
     })
     .filter((item): item is NonNullable<typeof item> => item !== null);
+}
+
+async function fetchChatPreviewsFallback(supabase: SupabaseBrowserClient) {
+  const members = await fetchMembers(supabase);
+
+  const { data: messages, error } = await supabase
+    .from("messages")
+    .select("*")
+    .order("sent_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  const latestByMember = new Map<string, ReturnType<typeof mapMessageRow>>();
+  const unreadByMember = new Map<string, number>();
+
+  for (const row of messages ?? []) {
+    if (!latestByMember.has(row.member_id)) {
+      latestByMember.set(row.member_id, mapMessageRow(row));
+    }
+    if (row.sender === "member" && !row.read_at) {
+      unreadByMember.set(
+        row.member_id,
+        (unreadByMember.get(row.member_id) ?? 0) + 1,
+      );
+    }
+  }
+
+  return members
+    .map((member) => {
+      const latest = latestByMember.get(member.id);
+      return {
+        member,
+        preview: latest?.content ?? "대화를 시작해보세요",
+        time: latest?.sentAt,
+        unreadCount: unreadByMember.get(member.id) ?? 0,
+      };
+    })
+    .sort((a, b) => {
+      if (a.unreadCount !== b.unreadCount) {
+        return b.unreadCount - a.unreadCount;
+      }
+      if (!a.time && !b.time) {
+        return a.member.name.localeCompare(b.member.name, "ko");
+      }
+      if (!a.time) return 1;
+      if (!b.time) return -1;
+      return new Date(b.time).getTime() - new Date(a.time).getTime();
+    });
 }
 
 export async function fetchWeekSchedules(supabase: SupabaseBrowserClient) {
@@ -636,6 +749,93 @@ export async function cancelSchedule(
     .from("schedules")
     .update({ cancelled_at: new Date().toISOString(), status: "pending" })
     .eq("id", scheduleId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function updateSchedule(
+  supabase: SupabaseBrowserClient,
+  scheduleId: string,
+  input: { date: string; time: string },
+) {
+  const { error } = await supabase
+    .from("schedules")
+    .update({
+      schedule_date: input.date,
+      schedule_time: `${input.time}:00`,
+      status: "confirmed",
+    })
+    .eq("id", scheduleId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function confirmSchedule(
+  supabase: SupabaseBrowserClient,
+  scheduleId: string,
+) {
+  const { error } = await supabase
+    .from("schedules")
+    .update({ status: "confirmed" })
+    .eq("id", scheduleId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function updateTrainerProfile(
+  supabase: SupabaseBrowserClient,
+  input: UpdateTrainerProfileInput,
+) {
+  const trainer = await ensureTrainerProfile(supabase);
+
+  const { data, error } = await supabase
+    .from("trainers")
+    .update({
+      name: input.name.trim(),
+      center_name: input.centerName?.trim() || null,
+      phone: input.phone?.trim() || null,
+    })
+    .eq("id", trainer.id)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapTrainerRow(data);
+}
+
+export async function requestMemberSchedule(
+  supabase: SupabaseBrowserClient,
+  date: string,
+  time: string,
+) {
+  const { data, error } = await supabase.rpc("request_member_schedule", {
+    p_schedule_date: date,
+    p_schedule_time: `${time}:00`,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data as string;
+}
+
+export async function cancelMemberSchedule(
+  supabase: SupabaseBrowserClient,
+  scheduleId: string,
+) {
+  const { error } = await supabase.rpc("cancel_member_schedule", {
+    p_schedule_id: scheduleId,
+  });
 
   if (error) {
     throw error;

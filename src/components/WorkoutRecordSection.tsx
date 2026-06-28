@@ -34,6 +34,7 @@ const PLACEHOLDER =
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const MAX_FILES = 10;
+const PAGE_SIZE = 20;
 
 type AttachmentPreview = {
   id: string;
@@ -61,6 +62,8 @@ export function WorkoutRecordSection({ memberId }: WorkoutRecordSectionProps) {
     null,
   );
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -77,8 +80,12 @@ export function WorkoutRecordSection({ memberId }: WorkoutRecordSectionProps) {
 
     try {
       const supabase = createBrowserSupabaseClient();
-      const data = await fetchWorkoutRecords(supabase, memberId);
+      const data = await fetchWorkoutRecords(supabase, memberId, {
+        limit: PAGE_SIZE,
+        offset: 0,
+      });
       setRecords(data);
+      setHasMore(data.length === PAGE_SIZE);
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -89,6 +96,29 @@ export function WorkoutRecordSection({ memberId }: WorkoutRecordSectionProps) {
       setIsLoading(false);
     }
   }, [memberId]);
+
+  async function loadMoreRecords() {
+    setIsLoadingMore(true);
+    setErrorMessage(null);
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const data = await fetchWorkoutRecords(supabase, memberId, {
+        limit: PAGE_SIZE,
+        offset: records.length,
+      });
+      setRecords((prev) => [...prev, ...data]);
+      setHasMore(data.length === PAGE_SIZE);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "운동 기록을 더 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }
 
   useEffect(() => {
     loadRecords();
@@ -234,9 +264,12 @@ export function WorkoutRecordSection({ memberId }: WorkoutRecordSectionProps) {
 
     try {
       const supabase = createBrowserSupabaseClient();
+      const trainer = await ensureTrainerProfile(supabase);
       const updated = await updateWorkoutRecord(
         supabase,
         editingRecord.id,
+        memberId,
+        trainer.id,
         input,
       );
       setRecords((prev) =>
@@ -320,6 +353,19 @@ export function WorkoutRecordSection({ memberId }: WorkoutRecordSectionProps) {
           ))}
         </ul>
       )}
+
+      {hasMore && !isLoading ? (
+        <div className="mb-6 mt-4 text-center">
+          <button
+            type="button"
+            onClick={loadMoreRecords}
+            disabled={isLoadingMore}
+            className="rounded-xl border border-border px-4 py-2 text-sm text-muted hover:border-emerald-500/30 hover:text-emerald-400 disabled:opacity-60"
+          >
+            {isLoadingMore ? "불러오는 중..." : "더 보기"}
+          </button>
+        </div>
+      ) : null}
 
       <form
         onSubmit={handleSubmit}

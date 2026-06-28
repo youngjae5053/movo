@@ -439,6 +439,17 @@ export type Database = {
         Args: { p_token: string };
         Returns: undefined;
       };
+      request_member_schedule: {
+        Args: {
+          p_schedule_date: string;
+          p_schedule_time: string;
+        };
+        Returns: string;
+      };
+      cancel_member_schedule: {
+        Args: { p_schedule_id: string };
+        Returns: undefined;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
