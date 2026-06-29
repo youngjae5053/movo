@@ -58,6 +58,13 @@ export function MemberHomeSection() {
           <p className="mt-1 text-sm text-muted">트레이너와 함께 남긴 기록 보기</p>
         </Link>
         <Link
+          href="/member/body"
+          className="rounded-2xl border border-border bg-surface-elevated px-4 py-4"
+        >
+          <p className="text-sm font-medium">체성분 기록</p>
+          <p className="mt-1 text-sm text-muted">체중·근육량·체지방률 추이 확인</p>
+        </Link>
+        <Link
           href="/member/chat"
           className="rounded-2xl border border-border bg-surface-elevated px-4 py-4"
         >

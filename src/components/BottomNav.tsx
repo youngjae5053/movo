@@ -1,12 +1,21 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const NAV_ITEMS = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: (active: boolean) => ReactNode;
+  isActive: (pathname: string) => boolean;
+};
+
+const NAV_ITEMS: NavItem[] = [
   {
     href: "/",
     label: "홈",
+    isActive: (pathname) => pathname === "/",
     icon: (active: boolean) => (
       <svg
         width="22"
@@ -24,8 +33,33 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: "/members",
+    label: "회원",
+    isActive: (pathname) =>
+      pathname === "/members" || pathname.startsWith("/members/"),
+    icon: (active: boolean) => (
+      <svg
+        width="22"
+        height="22"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={active ? "text-emerald-400" : "text-zinc-500"}
+      >
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+  },
+  {
     href: "/schedule",
     label: "예약",
+    isActive: (pathname) => pathname === "/schedule",
     icon: (active: boolean) => (
       <svg
         width="22"
@@ -48,6 +82,8 @@ const NAV_ITEMS = [
   {
     href: "/chats",
     label: "채팅",
+    isActive: (pathname) =>
+      pathname === "/chats" || pathname.startsWith("/chats/"),
     icon: (active: boolean) => (
       <svg
         width="22"
@@ -73,7 +109,7 @@ export function BottomNav() {
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-md">
       <div className="mx-auto flex max-w-lg items-stretch justify-around px-2 pb-[env(safe-area-inset-bottom)]">
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = item.isActive(pathname);
 
           return (
             <Link
@@ -95,8 +131,8 @@ export function BottomNav() {
   );
 }
 
-export const TAB_ROUTES = ["/", "/schedule", "/chats"];
+export const TAB_ROUTES = ["/", "/members", "/schedule", "/chats"];
 
 export function isTabRoute(pathname: string): boolean {
-  return TAB_ROUTES.includes(pathname);
+  return NAV_ITEMS.some((item) => item.isActive(pathname));
 }

@@ -1,10 +1,13 @@
 import type { Database } from "./database.types";
 import type {
+  BodyRecord,
   ChatMessage,
   Member,
   Reservation,
+  SessionPackage,
   WorkoutMedia,
   WorkoutRecord,
+  WorkoutTemplate,
 } from "./types";
 
 type MemberRow = Database["public"]["Tables"]["members"]["Row"];
@@ -13,6 +16,9 @@ type WorkoutMediaRow = Database["public"]["Tables"]["workout_record_media"]["Row
 type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
 type ScheduleRow = Database["public"]["Tables"]["schedules"]["Row"];
 type TrainerRow = Database["public"]["Tables"]["trainers"]["Row"];
+type SessionPackageRow = Database["public"]["Tables"]["session_packages"]["Row"];
+type BodyRecordRow = Database["public"]["Tables"]["body_records"]["Row"];
+type WorkoutTemplateRow = Database["public"]["Tables"]["workout_templates"]["Row"];
 
 type WorkoutRowWithMedia = WorkoutRow & {
   workout_record_media?: WorkoutMediaRow[] | null;
@@ -103,5 +109,47 @@ export function mapScheduleRow(
     date: row.schedule_date,
     time: normalizeScheduleTime(row.schedule_time),
     status: row.status,
+    attendedAt: row.attended_at ?? undefined,
+  };
+}
+
+export function mapSessionPackageRow(row: SessionPackageRow): SessionPackage {
+  return {
+    id: row.id,
+    memberId: row.member_id,
+    trainerId: row.trainer_id,
+    totalSessions: row.total_sessions,
+    remainingSessions: row.remaining_sessions,
+    price: row.price ?? undefined,
+    paymentMethod: row.payment_method ?? undefined,
+    paidAt: row.paid_at ?? undefined,
+    note: row.note ?? undefined,
+    startedAt: row.started_at,
+    expiresAt: row.expires_at ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
+export function mapBodyRecordRow(row: BodyRecordRow): BodyRecord {
+  return {
+    id: row.id,
+    memberId: row.member_id,
+    recordedAt: row.recorded_at,
+    weight: row.weight ?? undefined,
+    muscleMass: row.muscle_mass ?? undefined,
+    bodyFatPercent: row.body_fat_percent ?? undefined,
+    bmi: row.bmi ?? undefined,
+    note: row.note ?? undefined,
+  };
+}
+
+export function mapWorkoutTemplateRow(row: WorkoutTemplateRow): WorkoutTemplate {
+  return {
+    id: row.id,
+    name: row.name,
+    bodyParts: row.body_parts ?? undefined,
+    duration: row.duration ?? undefined,
+    content: row.content ?? undefined,
+    sortOrder: row.sort_order,
   };
 }

@@ -1,10 +1,13 @@
 import type { SupabaseBrowserClient } from "@/lib/supabase";
 import {
+  mapBodyRecordRow,
   mapMemberRow,
   mapMessageRow,
   mapScheduleRow,
+  mapSessionPackageRow,
   mapTrainerRow,
   mapWorkoutRow,
+  mapWorkoutTemplateRow,
 } from "@/lib/mappers";
 import { attachSignedUrlsToRecords } from "@/lib/media-urls";
 import {
@@ -12,7 +15,7 @@ import {
   getMediaTypeFromFile,
   WORKOUT_MEDIA_BUCKET,
 } from "@/lib/storage";
-import type { Member, Reservation, WorkoutRecord } from "@/lib/types";
+import type { BodyRecord, Member, PaymentMethod, Reservation, SessionPackage, WorkoutRecord, WorkoutTemplate } from "@/lib/types";
 import type { MoodValue } from "@/lib/workout";
 import {
   addDaysToDateString,
@@ -1018,4 +1021,310 @@ export async function fetchMemberWeekSchedules(supabase: SupabaseBrowserClient) 
 export async function fetchMemberWorkoutRecords(supabase: SupabaseBrowserClient) {
   const member = await fetchCurrentMemberProfile(supabase);
   return fetchWorkoutRecords(supabase, member.id);
+}
+
+// ── 세션 패키지 (회차 관리) ──────────────────────────────────────
+
+export async function fetchSessionPackages(
+  supabase: SupabaseBrowserClient,
+  memberId: string,
+): Promise<SessionPackage[]> {
+  const { data, error } = await supabase
+    .from("session_packages")
+    .select("*")
+    .eq("member_id", memberId)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []).map(mapSessionPackageRow);
+}
+
+export type CreateSessionPackageInput = {
+  totalSessions: number;
+  price?: number;
+  paymentMethod?: PaymentMethod;
+  paidAt?: string;
+  note?: string;
+  startedAt?: string;
+  expiresAt?: string;
+};
+
+export async function createSessionPackage(
+  supabase: SupabaseBrowserClient,
+  memberId: string,
+  trainerId: string,
+  input: CreateSessionPackageInput,
+): Promise<SessionPackage> {
+  const { data, error } = await supabase
+    .from("session_packages")
+    .insert({
+      member_id: memberId,
+      trainer_id: trainerId,
+      total_sessions: input.totalSessions,
+      remaining_sessions: input.totalSessions,
+      price: input.price ?? null,
+      payment_method: input.paymentMethod ?? null,
+      paid_at: input.paidAt ?? null,
+      note: input.note?.trim() || null,
+      started_at: input.startedAt ?? getTodayDateString(),
+      expires_at: input.expiresAt ?? null,
+    })
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return mapSessionPackageRow(data);
+}
+
+export async function deleteSessionPackage(
+  supabase: SupabaseBrowserClient,
+  packageId: string,
+) {
+  const { error } = await supabase
+    .from("session_packages")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", packageId);
+
+  if (error) throw error;
+}
+
+// 출석 처리 + 회차 차감
+export async function attendSchedule(
+  supabase: SupabaseBrowserClient,
+  scheduleId: string,
+) {
+  const { error } = await supabase.rpc("deduct_session_on_attend", {
+    p_schedule_id: scheduleId,
+  });
+  if (error) throw error;
+}
+
+// 현재 활성 패키지 잔여 횟수 합계
+export async function fetchRemainingSessionCount(
+  supabase: SupabaseBrowserClient,
+  memberId: string,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from("session_packages")
+    .select("remaining_sessions")
+    .eq("member_id", memberId)
+    .is("deleted_at", null);
+
+  if (error) throw error;
+  return (data ?? []).reduce((sum, row) => sum + row.remaining_sessions, 0);
+}
+
+// ── 체성분 기록 ─────────────────────────────────────────────────
+
+export async function fetchBodyRecords(
+  supabase: SupabaseBrowserClient,
+  memberId: string,
+): Promise<BodyRecord[]> {
+  const { data, error } = await supabase
+    .from("body_records")
+    .select("*")
+    .eq("member_id", memberId)
+    .order("recorded_at", { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []).map(mapBodyRecordRow);
+}
+
+export type CreateBodyRecordInput = {
+  recordedAt?: string;
+  weight?: number;
+  muscleMass?: number;
+  bodyFatPercent?: number;
+  bmi?: number;
+  note?: string;
+};
+
+export async function createBodyRecord(
+  supabase: SupabaseBrowserClient,
+  memberId: string,
+  trainerId: string,
+  input: CreateBodyRecordInput,
+): Promise<BodyRecord> {
+  const { data, error } = await supabase
+    .from("body_records")
+    .insert({
+      member_id: memberId,
+      trainer_id: trainerId,
+      recorded_at: input.recordedAt ?? getTodayDateString(),
+      weight: input.weight ?? null,
+      muscle_mass: input.muscleMass ?? null,
+      body_fat_percent: input.bodyFatPercent ?? null,
+      bmi: input.bmi ?? null,
+      note: input.note?.trim() || null,
+    })
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return mapBodyRecordRow(data);
+}
+
+export async function deleteBodyRecord(
+  supabase: SupabaseBrowserClient,
+  recordId: string,
+) {
+  const { error } = await supabase
+    .from("body_records")
+    .delete()
+    .eq("id", recordId);
+  if (error) throw error;
+}
+
+// 회원용 체성분 조회
+export async function fetchMemberBodyRecords(supabase: SupabaseBrowserClient) {
+  const member = await fetchCurrentMemberProfile(supabase);
+  return fetchBodyRecords(supabase, member.id);
+}
+
+// ── 운동 기록 템플릿 ─────────────────────────────────────────────
+
+export async function fetchWorkoutTemplates(
+  supabase: SupabaseBrowserClient,
+): Promise<WorkoutTemplate[]> {
+  const { data, error } = await supabase
+    .from("workout_templates")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []).map(mapWorkoutTemplateRow);
+}
+
+export type CreateWorkoutTemplateInput = {
+  name: string;
+  bodyParts?: string[];
+  duration?: number;
+  content?: string;
+};
+
+export async function createWorkoutTemplate(
+  supabase: SupabaseBrowserClient,
+  trainerId: string,
+  input: CreateWorkoutTemplateInput,
+): Promise<WorkoutTemplate> {
+  const { data, error } = await supabase
+    .from("workout_templates")
+    .insert({
+      trainer_id: trainerId,
+      name: input.name.trim(),
+      body_parts: input.bodyParts?.length ? input.bodyParts : null,
+      duration: input.duration ?? null,
+      content: input.content?.trim() || null,
+    })
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return mapWorkoutTemplateRow(data);
+}
+
+export async function deleteWorkoutTemplate(
+  supabase: SupabaseBrowserClient,
+  templateId: string,
+) {
+  const { error } = await supabase
+    .from("workout_templates")
+    .delete()
+    .eq("id", templateId);
+  if (error) throw error;
+}
+
+// ── 수입 대시보드 ────────────────────────────────────────────────
+
+export type MonthlyRevenue = {
+  month: string; // "YYYY-MM"
+  revenue: number;
+  sessionCount: number;
+};
+
+export async function fetchMonthlyRevenue(
+  supabase: SupabaseBrowserClient,
+): Promise<MonthlyRevenue[]> {
+  const { data, error } = await supabase
+    .from("session_packages")
+    .select("price, paid_at, total_sessions")
+    .is("deleted_at", null)
+    .not("paid_at", "is", null)
+    .order("paid_at", { ascending: true });
+
+  if (error) throw error;
+
+  const monthMap = new Map<string, { revenue: number; sessionCount: number }>();
+
+  for (const row of data ?? []) {
+    if (!row.paid_at) continue;
+    const month = row.paid_at.slice(0, 7);
+    const existing = monthMap.get(month) ?? { revenue: 0, sessionCount: 0 };
+    monthMap.set(month, {
+      revenue: existing.revenue + (row.price ?? 0),
+      sessionCount: existing.sessionCount + row.total_sessions,
+    });
+  }
+
+  return Array.from(monthMap.entries()).map(([month, stats]) => ({
+    month,
+    ...stats,
+  }));
+}
+
+// ── 전체 일정 조회 (캘린더용) ──────────────────────────────────────
+
+export async function fetchMonthSchedules(
+  supabase: SupabaseBrowserClient,
+  year: number,
+  month: number,
+): Promise<Reservation[]> {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const from = `${year}-${pad(month)}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const to = `${year}-${pad(month)}-${pad(lastDay)}`;
+
+  const { data, error } = await supabase
+    .from("schedules")
+    .select("*, members(name)")
+    .gte("schedule_date", from)
+    .lte("schedule_date", to)
+    .is("deleted_at", null)
+    .is("cancelled_at", null)
+    .order("schedule_date", { ascending: true })
+    .order("schedule_time", { ascending: true });
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => {
+    const memberName =
+      (row.members as { name: string } | null)?.name ?? "알 수 없음";
+    return mapScheduleRow(row, memberName);
+  });
+}
+
+// ── CSV 내보내기 ─────────────────────────────────────────────────
+
+export async function exportMembersCSV(
+  supabase: SupabaseBrowserClient,
+): Promise<string> {
+  const members = await fetchMembers(supabase);
+
+  const header = ["이름", "이메일", "연락처", "나이", "목표", "상태", "등록일", "마지막 운동일"].join(",");
+  const rows = members.map((m) =>
+    [
+      m.name,
+      m.email,
+      m.phone,
+      m.age,
+      `"${m.goal}"`,
+      m.status,
+      m.joinedAt,
+      m.lastWorkoutAt,
+    ].join(","),
+  );
+
+  return [header, ...rows].join("\n");
 }

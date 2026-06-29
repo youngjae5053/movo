@@ -77,9 +77,10 @@ export async function updateSession(request: NextRequest) {
   const profile = await resolveUserProfile(supabase, user.id);
 
   if (profile.role === "unknown") {
+    // 트레이너 레코드가 없는 경우 onboarding에서 생성 처리
+    if (pathname === "/onboarding") return supabaseResponse;
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/signup";
-    redirectUrl.searchParams.set("complete", "profile");
+    redirectUrl.pathname = "/onboarding";
     return NextResponse.redirect(redirectUrl);
   }
 

@@ -22,6 +22,8 @@ export function MemberListSection() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "paused" | "inactive">("all");
+  const [sortOrder, setSortOrder] = useState<"newest" | "name" | "lastWorkout">("newest");
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -53,15 +55,28 @@ export function MemberListSection() {
 
   const activeCount = members.filter((member) => member.status === "active").length;
   const normalizedQuery = searchQuery.trim().toLowerCase();
-  const filteredMembers = normalizedQuery
-    ? members.filter(
-        (member) =>
-          member.name.toLowerCase().includes(normalizedQuery) ||
-          member.phone.includes(normalizedQuery) ||
-          member.email.toLowerCase().includes(normalizedQuery) ||
-          member.goal.toLowerCase().includes(normalizedQuery),
-      )
-    : members;
+
+  const filteredMembers = members
+    .filter((member) => {
+      if (statusFilter !== "all" && member.status !== statusFilter) return false;
+      if (!normalizedQuery) return true;
+      return (
+        member.name.toLowerCase().includes(normalizedQuery) ||
+        member.phone.includes(normalizedQuery) ||
+        member.email.toLowerCase().includes(normalizedQuery) ||
+        member.goal.toLowerCase().includes(normalizedQuery)
+      );
+    })
+    .sort((a, b) => {
+      if (sortOrder === "name") {
+        return a.name.localeCompare(b.name, "ko");
+      }
+      if (sortOrder === "lastWorkout") {
+        return b.lastWorkoutAt.localeCompare(a.lastWorkoutAt);
+      }
+      // newest: default server order (already sorted by created_at desc), preserve index
+      return 0;
+    });
 
   async function handleAddMember(
     data: Pick<Member, "name" | "age" | "phone" | "goal" | "email"> & {
@@ -145,6 +160,50 @@ export function MemberListSection() {
             />
           ) : null}
         </div>
+
+        {members.length > 0 ? (
+          <div className="mb-4 space-y-2">
+            {/* Status filter */}
+            <div className="flex gap-1.5 flex-wrap">
+              {(
+                [
+                  { value: "all", label: "전체" },
+                  { value: "active", label: "활성" },
+                  { value: "paused", label: "휴식" },
+                  { value: "inactive", label: "비활성" },
+                ] as const
+              ).map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setStatusFilter(value)}
+                  className={[
+                    "rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors",
+                    statusFilter === value
+                      ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
+                      : "border-border text-zinc-500 hover:text-zinc-300",
+                  ].join(" ")}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Sort select */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-zinc-600">정렬</span>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as typeof sortOrder)}
+                className="rounded-lg border border-border bg-surface px-2 py-1 text-xs text-zinc-300 outline-none focus:border-emerald-500/40"
+              >
+                <option value="newest">최신 등록순</option>
+                <option value="name">이름순</option>
+                <option value="lastWorkout">마지막 운동일순</option>
+              </select>
+            </div>
+          </div>
+        ) : null}
         {members.length === 0 ? (
           <div className="rounded-2xl border border-border bg-surface-elevated px-4 py-10 text-center text-sm text-muted">
             등록된 회원이 없습니다. + 버튼으로 추가해 보세요.

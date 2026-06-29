@@ -1,10 +1,10 @@
 import { AppShell } from "@/components/AppShell";
-import { MemberListSection } from "@/components/MemberListSection";
+import { TrainerDashboard } from "@/components/TrainerDashboard";
 
 export default function HomePage() {
   return (
     <AppShell showLogout>
-      <MemberListSection />
+      <TrainerDashboard />
     </AppShell>
   );
 }

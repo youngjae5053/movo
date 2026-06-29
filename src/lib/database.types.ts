@@ -282,6 +282,7 @@ export type Database = {
           status: "confirmed" | "pending";
           deleted_at: string | null;
           cancelled_at: string | null;
+          attended_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -294,6 +295,7 @@ export type Database = {
           status?: "confirmed" | "pending";
           deleted_at?: string | null;
           cancelled_at?: string | null;
+          attended_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -306,6 +308,7 @@ export type Database = {
           status?: "confirmed" | "pending";
           deleted_at?: string | null;
           cancelled_at?: string | null;
+          attended_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -356,6 +359,145 @@ export type Database = {
         };
         Relationships: [];
       };
+      session_packages: {
+        Row: {
+          id: string;
+          member_id: string;
+          trainer_id: string;
+          total_sessions: number;
+          remaining_sessions: number;
+          price: number | null;
+          payment_method: "card" | "cash" | "transfer" | null;
+          paid_at: string | null;
+          note: string | null;
+          started_at: string;
+          expires_at: string | null;
+          deleted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          member_id: string;
+          trainer_id: string;
+          total_sessions: number;
+          remaining_sessions: number;
+          price?: number | null;
+          payment_method?: "card" | "cash" | "transfer" | null;
+          paid_at?: string | null;
+          note?: string | null;
+          started_at?: string;
+          expires_at?: string | null;
+          deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          member_id?: string;
+          trainer_id?: string;
+          total_sessions?: number;
+          remaining_sessions?: number;
+          price?: number | null;
+          payment_method?: "card" | "cash" | "transfer" | null;
+          paid_at?: string | null;
+          note?: string | null;
+          started_at?: string;
+          expires_at?: string | null;
+          deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "session_packages_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      body_records: {
+        Row: {
+          id: string;
+          member_id: string;
+          trainer_id: string;
+          recorded_at: string;
+          weight: number | null;
+          muscle_mass: number | null;
+          body_fat_percent: number | null;
+          bmi: number | null;
+          note: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          member_id: string;
+          trainer_id: string;
+          recorded_at?: string;
+          weight?: number | null;
+          muscle_mass?: number | null;
+          body_fat_percent?: number | null;
+          bmi?: number | null;
+          note?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          member_id?: string;
+          trainer_id?: string;
+          recorded_at?: string;
+          weight?: number | null;
+          muscle_mass?: number | null;
+          body_fat_percent?: number | null;
+          bmi?: number | null;
+          note?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "body_records_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      workout_templates: {
+        Row: {
+          id: string;
+          trainer_id: string;
+          name: string;
+          body_parts: string[] | null;
+          duration: number | null;
+          content: string | null;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          trainer_id: string;
+          name: string;
+          body_parts?: string[] | null;
+          duration?: number | null;
+          content?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          trainer_id?: string;
+          name?: string;
+          body_parts?: string[] | null;
+          duration?: number | null;
+          content?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       data_requests: {
         Row: {
           id: string;
@@ -398,6 +540,10 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      deduct_session_on_attend: {
+        Args: { p_schedule_id: string };
+        Returns: undefined;
+      };
       current_trainer_id: {
         Args: Record<PropertyKey, never>;
         Returns: string;

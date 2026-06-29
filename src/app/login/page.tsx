@@ -18,7 +18,7 @@ export default function LoginPage() {
       </div>
 
       <p className="mt-6 text-center text-xs text-zinc-600">
-        Supabase Auth로 로그인합니다
+        © 2026 Movo. 트레이너 전용 서비스입니다.
       </p>
     </div>
   );

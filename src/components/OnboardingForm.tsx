@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { completeTrainerOnboarding } from "@/lib/api/client";
+import { completeTrainerOnboarding, ensureTrainerProfile } from "@/lib/api/client";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
 
 export function OnboardingForm() {
@@ -20,6 +20,7 @@ export function OnboardingForm() {
 
     try {
       const supabase = createBrowserSupabaseClient();
+      await ensureTrainerProfile(supabase); // 레코드 없으면 먼저 생성
       await completeTrainerOnboarding(supabase, {
         name: name.trim(),
         centerName: centerName.trim(),

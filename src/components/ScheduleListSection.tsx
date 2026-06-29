@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useScheduleRealtime } from "@/hooks/useScheduleRealtime";
 import { AuthErrorBanner } from "@/components/AuthErrorBanner";
 import { BookSessionModal } from "@/components/BookSessionModal";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { ReservationStatusBadge } from "@/components/ReservationStatusBadge";
 import {
+  attendSchedule,
   cancelSchedule,
   confirmSchedule,
   fetchWeekSchedules,
@@ -50,6 +52,8 @@ export function ScheduleListSection() {
     loadSchedules();
   }, [loadSchedules]);
 
+  useScheduleRealtime(loadSchedules);
+
   async function handleConfirm(scheduleId: string) {
     setErrorMessage(null);
 
@@ -79,6 +83,20 @@ export function ScheduleListSection() {
       );
     } finally {
       setCancellingId(null);
+    }
+  }
+
+  async function handleAttend(scheduleId: string) {
+    setErrorMessage(null);
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      await attendSchedule(supabase, scheduleId);
+      await loadSchedules();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "출석 처리에 실패했습니다.",
+      );
     }
   }
 
@@ -150,6 +168,21 @@ export function ScheduleListSection() {
                           >
                             확인
                           </button>
+                        ) : null}
+                        {reservation.status === "confirmed" ? (
+                          reservation.attendedAt ? (
+                            <span className="rounded-lg bg-emerald-500/20 px-2.5 py-1.5 text-xs text-emerald-400">
+                              출석 완료
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleAttend(reservation.id)}
+                              className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs text-emerald-400 hover:bg-emerald-500/20"
+                            >
+                              출석
+                            </button>
+                          )
                         ) : null}
                         <button
                           type="button"

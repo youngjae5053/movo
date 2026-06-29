@@ -19,6 +19,7 @@ import {
   updateWorkoutRecord,
   type UpdateWorkoutRecordInput,
 } from "@/lib/api/client";
+import { WorkoutTemplateDrawer } from "@/components/WorkoutTemplateDrawer";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
 import type { WorkoutRecord } from "@/lib/types";
 import {
@@ -67,6 +68,7 @@ export function WorkoutRecordSection({ memberId }: WorkoutRecordSectionProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isTemplateDrawerOpen, setIsTemplateDrawerOpen] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -532,6 +534,29 @@ export function WorkoutRecordSection({ memberId }: WorkoutRecordSectionProps) {
               <span className="text-xs text-zinc-600">
                 사진·영상 {attachments.length}/{MAX_FILES}
               </span>
+              <button
+                type="button"
+                onClick={() => setIsTemplateDrawerOpen(true)}
+                aria-label="템플릿 선택"
+                className="flex h-9 items-center gap-1.5 rounded-xl border border-white/[0.08] px-3 text-xs text-zinc-500 transition-colors hover:border-emerald-500/30 hover:text-emerald-400"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                  <path d="M14 17.5h7M17.5 14v7" />
+                </svg>
+                템플릿
+              </button>
             </div>
 
             <button
@@ -551,6 +576,22 @@ export function WorkoutRecordSection({ memberId }: WorkoutRecordSectionProps) {
           ) : null}
         </div>
       </form>
+
+      <WorkoutTemplateDrawer
+        isOpen={isTemplateDrawerOpen}
+        currentBodyParts={bodyParts}
+        currentDuration={duration}
+        currentContent={text}
+        onSelect={(selection) => {
+          if (selection.bodyParts !== undefined) setBodyParts(selection.bodyParts);
+          if (selection.duration !== undefined) setDuration(selection.duration);
+          if (selection.content !== undefined) {
+            setText(selection.content);
+            setTimeout(adjustTextareaHeight, 0);
+          }
+        }}
+        onClose={() => setIsTemplateDrawerOpen(false)}
+      />
 
       <EditWorkoutRecordModal
         isOpen={editingRecord !== null}

@@ -40,10 +40,12 @@ export function LoginForm() {
         throw new Error("사용자 정보를 확인하지 못했습니다.");
       }
 
-      const profile = await resolveUserProfile(supabase, user.id);
+      let profile = await resolveUserProfile(supabase, user.id);
 
-      if (profile.role === "trainer") {
+      // 회원(invite 경로)이 아닌 경우, 트레이너 레코드가 없으면 생성
+      if (profile.role !== "member") {
         await ensureTrainerProfile(supabase);
+        profile = await resolveUserProfile(supabase, user.id);
       }
 
       router.push(getPostLoginPath(profile));

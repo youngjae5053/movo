@@ -65,4 +65,42 @@ export type Reservation = {
   date: string;
   time: string;
   status: ReservationStatus;
+  attendedAt?: string;
+};
+
+export type PaymentMethod = "card" | "cash" | "transfer";
+
+export type SessionPackage = {
+  id: string;
+  memberId: string;
+  trainerId: string;
+  totalSessions: number;
+  remainingSessions: number;
+  price?: number;
+  paymentMethod?: PaymentMethod;
+  paidAt?: string;
+  note?: string;
+  startedAt: string;
+  expiresAt?: string;
+  createdAt: string;
+};
+
+export type BodyRecord = {
+  id: string;
+  memberId: string;
+  recordedAt: string;
+  weight?: number;
+  muscleMass?: number;
+  bodyFatPercent?: number;
+  bmi?: number;
+  note?: string;
+};
+
+export type WorkoutTemplate = {
+  id: string;
+  name: string;
+  bodyParts?: string[];
+  duration?: number;
+  content?: string;
+  sortOrder: number;
 };
