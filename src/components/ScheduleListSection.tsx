@@ -135,50 +135,57 @@ export function ScheduleListSection() {
       </section>
 
       {grouped.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-surface-elevated px-4 py-10 text-center">
-          <p className="text-sm text-muted">예약된 수업이 없습니다.</p>
+        <div className="rounded-2xl bg-[#111318] px-4 py-10 text-center ring-1 ring-white/[0.06]">
+          <p className="text-sm text-zinc-600">예약된 수업이 없습니다.</p>
         </div>
       ) : (
         <div className="space-y-6">
           {grouped.map(({ date, items }) => (
             <section key={date}>
-              <h2 className="mb-3 text-sm font-medium text-emerald-400">
+              <h2 className="mb-2.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-500/80">
+                <span className="h-px flex-1 bg-emerald-500/15" />
                 {formatScheduleDay(date)}
+                <span className="h-px flex-1 bg-emerald-500/15" />
               </h2>
               <ul className="space-y-2">
                 {items.map((reservation) => (
                   <li key={reservation.id}>
-                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface-elevated px-4 py-3">
+                    <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#111318] px-4 py-3.5 ring-1 ring-white/[0.06]">
                       <Link
                         href={`/members/${reservation.memberId}`}
-                        className="min-w-0 flex-1 transition-colors hover:text-emerald-400"
+                        className="flex min-w-0 flex-1 items-center gap-3"
                       >
-                        <p className="font-semibold">{reservation.memberName}</p>
-                        <p className="mt-0.5 text-sm text-muted">
-                          {formatReservationTime(reservation.time)}
-                        </p>
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-sm font-bold text-emerald-400">
+                          {reservation.memberName[0]}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-zinc-100">{reservation.memberName}</p>
+                          <p className="mt-0.5 text-xs text-zinc-600">
+                            {formatReservationTime(reservation.time)}
+                          </p>
+                        </div>
                       </Link>
-                      <div className="flex shrink-0 items-center gap-2">
+                      <div className="flex shrink-0 items-center gap-1.5">
                         <ReservationStatusBadge status={reservation.status} />
                         {reservation.status === "pending" ? (
                           <button
                             type="button"
                             onClick={() => handleConfirm(reservation.id)}
-                            className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs text-emerald-400 hover:bg-emerald-500/20"
+                            className="rounded-lg bg-emerald-500/15 px-2.5 py-1.5 text-xs font-medium text-emerald-400 ring-1 ring-emerald-500/25 hover:bg-emerald-500/25 transition-colors"
                           >
                             확인
                           </button>
                         ) : null}
                         {reservation.status === "confirmed" ? (
                           reservation.attendedAt ? (
-                            <span className="rounded-lg bg-emerald-500/20 px-2.5 py-1.5 text-xs text-emerald-400">
-                              출석 완료
+                            <span className="rounded-lg bg-emerald-500/10 px-2.5 py-1.5 text-xs font-medium text-emerald-400">
+                              출석 ✓
                             </span>
                           ) : (
                             <button
                               type="button"
                               onClick={() => handleAttend(reservation.id)}
-                              className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs text-emerald-400 hover:bg-emerald-500/20"
+                              className="rounded-lg bg-emerald-500/15 px-2.5 py-1.5 text-xs font-medium text-emerald-400 ring-1 ring-emerald-500/25 hover:bg-emerald-500/25 transition-colors"
                             >
                               출석
                             </button>
@@ -187,14 +194,14 @@ export function ScheduleListSection() {
                         <button
                           type="button"
                           onClick={() => setRescheduling(reservation)}
-                          className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-zinc-400 hover:border-emerald-500/30 hover:text-emerald-400"
+                          className="rounded-lg bg-white/[0.04] px-2.5 py-1.5 text-xs text-zinc-500 ring-1 ring-white/[0.07] hover:text-zinc-300 transition-colors"
                         >
                           변경
                         </button>
                         <button
                           type="button"
                           onClick={() => setCancellingId(reservation.id)}
-                          className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-red-400 hover:border-red-500/30"
+                          className="rounded-lg bg-red-500/10 px-2.5 py-1.5 text-xs text-red-400 ring-1 ring-red-500/20 hover:bg-red-500/20 transition-colors"
                         >
                           취소
                         </button>

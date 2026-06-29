@@ -64,25 +64,27 @@ export default function SchedulePage() {
   return (
     <AppShell title="예약">
       {/* 탭 토글 */}
-      <div className="mb-5 flex gap-1 rounded-xl border border-border bg-surface-elevated p-1">
+      <div className="mb-5 flex gap-1 rounded-xl bg-[#111318] p-1 ring-1 ring-white/[0.06]">
         <button
           type="button"
           onClick={() => setTab("list")}
           className={[
-            "flex-1 rounded-lg py-1.5 text-sm font-medium transition-colors",
-            tab === "list" ? "bg-emerald-500/20 text-emerald-400" : "text-zinc-500 hover:text-zinc-300",
+            "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold transition-all",
+            tab === "list" ? "bg-emerald-500/20 text-emerald-400 shadow-[inset_0_1px_0_rgba(52,211,153,0.1)]" : "text-zinc-600 hover:text-zinc-400",
           ].join(" ")}
         >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
           리스트
         </button>
         <button
           type="button"
           onClick={() => setTab("calendar")}
           className={[
-            "flex-1 rounded-lg py-1.5 text-sm font-medium transition-colors",
-            tab === "calendar" ? "bg-emerald-500/20 text-emerald-400" : "text-zinc-500 hover:text-zinc-300",
+            "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold transition-all",
+            tab === "calendar" ? "bg-emerald-500/20 text-emerald-400 shadow-[inset_0_1px_0_rgba(52,211,153,0.1)]" : "text-zinc-600 hover:text-zinc-400",
           ].join(" ")}
         >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
           캘린더
         </button>
       </div>
@@ -93,7 +95,7 @@ export default function SchedulePage() {
       <button
         type="button"
         onClick={handleOpenNewBooking}
-        className="fixed bottom-24 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-black shadow-lg shadow-emerald-500/30 transition-transform hover:scale-105 active:scale-95"
+        className="fixed bottom-24 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.4),0_8px_24px_rgba(0,0,0,0.5)] transition-all hover:scale-105 hover:bg-emerald-400 active:scale-95"
         aria-label="새 예약 추가"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

@@ -103,23 +103,23 @@ export function ScheduleCalendarView() {
       {errorMessage ? <AuthErrorBanner message={errorMessage} /> : null}
 
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-5 flex items-center justify-between">
         <button
           type="button"
           onClick={prevMonth}
-          className="rounded-lg border border-border px-3 py-1.5 text-sm text-zinc-400 hover:border-emerald-500/30 hover:text-emerald-400"
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#111318] text-zinc-400 ring-1 ring-white/[0.06] transition-all hover:text-emerald-400 hover:ring-emerald-500/25 active:scale-95"
         >
-          ‹
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
-        <h2 className="text-base font-semibold">
+        <h2 className="text-base font-bold tracking-tight">
           {year}년 {month}월
         </h2>
         <button
           type="button"
           onClick={nextMonth}
-          className="rounded-lg border border-border px-3 py-1.5 text-sm text-zinc-400 hover:border-emerald-500/30 hover:text-emerald-400"
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#111318] text-zinc-400 ring-1 ring-white/[0.06] transition-all hover:text-emerald-400 hover:ring-emerald-500/25 active:scale-95"
         >
-          ›
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
         </button>
       </div>
 
@@ -128,11 +128,11 @@ export function ScheduleCalendarView() {
       ) : (
         <>
           {/* Day labels */}
-          <div className="mb-1 grid grid-cols-7 text-center">
+          <div className="mb-2 grid grid-cols-7 text-center">
             {DAY_LABELS.map((label, i) => (
               <div
                 key={label}
-                className={`py-1 text-xs font-medium ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-zinc-500"}`}
+                className={`py-1 text-[11px] font-semibold tracking-wider ${i === 0 ? "text-red-500/70" : i === 6 ? "text-blue-400/70" : "text-zinc-600"}`}
               >
                 {label}
               </div>
@@ -140,12 +140,10 @@ export function ScheduleCalendarView() {
           </div>
 
           {/* Calendar grid */}
-          <div className="grid grid-cols-7 gap-px rounded-2xl border border-border bg-border overflow-hidden">
+          <div className="grid grid-cols-7 gap-1 rounded-2xl">
             {cells.map((day, idx) => {
               if (day === null) {
-                return (
-                  <div key={`empty-${idx}`} className="bg-zinc-900 min-h-[52px]" />
-                );
+                return <div key={`empty-${idx}`} className="min-h-[52px]" />;
               }
               const dateStr = toDateString(year, month, day);
               const count = countMap.get(dateStr) ?? 0;
@@ -161,34 +159,36 @@ export function ScheduleCalendarView() {
                     setSelectedDate((prev) => (prev === dateStr ? null : dateStr))
                   }
                   className={[
-                    "relative flex min-h-[52px] flex-col items-center pt-2 pb-1 transition-colors",
+                    "relative flex min-h-[52px] flex-col items-center rounded-xl pt-2 pb-1.5 transition-all active:scale-95",
                     isSelected
-                      ? "bg-emerald-500/20"
-                      : "bg-zinc-900 hover:bg-zinc-800",
+                      ? "bg-emerald-500/20 ring-1 ring-emerald-500/30"
+                      : isToday
+                        ? "bg-[#111318] ring-1 ring-white/[0.08]"
+                        : "hover:bg-[#111318]",
                   ].join(" ")}
                 >
-                  {/* date number */}
                   <span
                     className={[
-                      "flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium",
+                      "flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold",
                       isToday
-                        ? "border border-emerald-500 text-emerald-400"
-                        : colIndex === 0
-                          ? "text-red-400"
-                          : colIndex === 6
-                            ? "text-blue-400"
-                            : "text-zinc-300",
+                        ? "bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+                        : isSelected
+                          ? "text-emerald-400"
+                          : colIndex === 0
+                            ? "text-red-400/80"
+                            : colIndex === 6
+                              ? "text-blue-400/80"
+                              : "text-zinc-300",
                     ].join(" ")}
                   >
                     {day}
                   </span>
 
-                  {/* reservation badge */}
                   {count > 0 ? (
-                    <span className="mt-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-bold text-black">
-                      {count}
-                    </span>
-                  ) : null}
+                    <span className="mt-1 flex h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+                  ) : (
+                    <span className="mt-1 h-1.5 w-1.5" />
+                  )}
                 </button>
               );
             })}
@@ -196,24 +196,32 @@ export function ScheduleCalendarView() {
 
           {/* Selected day panel */}
           {selectedDate ? (
-            <div className="mt-4 rounded-2xl border border-border bg-surface-elevated p-4">
-              <h3 className="mb-3 text-sm font-medium text-emerald-400">
-                {selectedDate.replace(/-/g, ".")} 예약
-              </h3>
+            <div className="mt-4 overflow-hidden rounded-2xl bg-[#111318] ring-1 ring-white/[0.07]">
+              <div className="border-b border-white/[0.05] px-4 py-3">
+                <h3 className="text-sm font-semibold text-emerald-400">
+                  {(() => {
+                    const [y, m, d] = selectedDate.split("-");
+                    return `${Number(m)}월 ${Number(d)}일 예약`;
+                  })()}
+                </h3>
+              </div>
               {selectedItems.length === 0 ? (
-                <p className="text-sm text-muted">예약이 없습니다.</p>
+                <p className="px-4 py-5 text-sm text-zinc-600">예약이 없습니다.</p>
               ) : (
-                <ul className="space-y-2">
+                <ul className="divide-y divide-white/[0.04]">
                   {selectedItems.map((r) => (
                     <li
                       key={r.id}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-border bg-zinc-900 px-3 py-2.5"
+                      className="flex items-center justify-between gap-3 px-4 py-3"
                     >
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold">{r.memberName}</p>
-                        <p className="mt-0.5 text-xs text-muted">
-                          {formatReservationTime(r.time)}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-sm font-bold text-emerald-400">
+                          {r.memberName[0]}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-zinc-100">{r.memberName}</p>
+                          <p className="text-xs text-zinc-600">{formatReservationTime(r.time)}</p>
+                        </div>
                       </div>
                       <ReservationStatusBadge status={r.status} />
                     </li>

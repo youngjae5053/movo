@@ -1,14 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --background: #000000;
-  --foreground: #fafafa;
-  --surface: #0a0a0a;
-  --surface-elevated: #141414;
-  --border: #262626;
-  --muted: #a3a3a3;
+  --background: #060608;
+  --foreground: #f0f0f2;
+  --surface: #0e0e11;
+  --surface-elevated: #15151a;
+  --surface-glass: rgba(21, 21, 26, 0.85);
+  --border: #222228;
+  --border-subtle: #1a1a1f;
+  --muted: #6b6b78;
   --accent: #10b981;
-  --accent-hover: #059669;
+  --accent-hover: #34d399;
+  --accent-glow: rgba(16, 185, 129, 0.2);
 }
 
 @theme inline {
@@ -28,8 +31,35 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Premium scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2a30;
+  border-radius: 2px;
+}
+
+/* Glass morphism utility */
+.glass {
+  background: var(--surface-glass);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+/* Emerald glow on focus */
+.glow-focus:focus-within {
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.3), 0 0 12px rgba(16, 185, 129, 0.08);
 }

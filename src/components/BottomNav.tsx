@@ -106,8 +106,8 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-md">
-      <div className="mx-auto flex max-w-lg items-stretch justify-around px-2 pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.06] bg-[#060608]/80 backdrop-blur-2xl">
+      <div className="mx-auto flex max-w-lg items-stretch justify-around px-1 pb-[env(safe-area-inset-bottom)]">
         {NAV_ITEMS.map((item) => {
           const isActive = item.isActive(pathname);
 
@@ -115,11 +115,14 @@ export function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
-              className="flex flex-1 flex-col items-center gap-1 py-2.5 transition-colors"
+              className="relative flex flex-1 flex-col items-center gap-1 py-3 transition-all"
             >
+              {isActive && (
+                <span className="absolute top-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+              )}
               {item.icon(isActive)}
               <span
-                className={`text-[11px] font-medium ${isActive ? "text-emerald-400" : "text-zinc-500"}`}
+                className={`text-[10px] font-semibold tracking-wide transition-colors ${isActive ? "text-emerald-400" : "text-zinc-600"}`}
               >
                 {item.label}
               </span>
